@@ -18,4 +18,5 @@ int 80h	;iniciar la interrupción
 
 ;finalizando con proceso exitoso
 mov eax, 1
+mov ebx, 0
 int 0x80
