@@ -309,27 +309,99 @@ OPTION_1:
 
 	; COEFICIENTE 0
 	print text1_0, len_text1_0
-	print ln, 2
+	call READ_NUMBER ; llamando al procedimiento de lectura de número
+	mov [coef_0], dl ; copiando el valor del registro DL al coeficiente 0
+	mov cl, 0
+	cmp [byte_aux], cl
+	je read_coef_1
+	; Guardando complemento a 2 del número al ser negativo
+	neg dl
+	mov [coef_0], dl
 read_coef_1:
 	; COEFICIENTE 1
 	print text1_1, len_text1_1
-	print ln, 2
+	call READ_NUMBER ; llamando al procedimiento de lectura de número
+	cmp dl, 0
+	je no_update_1
+	; Actualizando el grado de la función
+	mov cl, 1
+	mov [degree], cl
+no_update_1:
+	mov [coef_1], dl ; copiando el valor del registro DL al coeficiente 1
+	mov cl, 0
+	cmp [byte_aux], cl
+	je read_coef_2
+	; Guardando complemento a 2 del número al ser negativo
+	neg dl
+	mov [coef_1], dl
 read_coef_2:
 	; COEFICIENTE 2
 	print text1_2, len_text1_2
-	print ln, 2
+	call READ_NUMBER ; llamando al procedimiento de lectura de número
+	cmp dl, 0
+	je no_update_2
+	; Actualizando el grado de la función
+	mov cl, 2
+	mov [degree], cl
+no_update_2:
+	mov [coef_2], dl ; copiando el valor del registro DL al coeficiente 2
+	mov cl, 0
+	cmp [byte_aux], cl
+	je read_coef_3
+	; Guardando complemento a 2 del número al ser negativo
+	neg dl
+	mov [coef_2], dl
 read_coef_3:
 	; COEFICIENTE 3
 	print text1_3, len_text1_3
-	print ln, 2
+	call READ_NUMBER ; llamando al procedimiento de lectura de número
+	cmp dl, 0
+	je no_update_3
+	; Actualizando el grado de la función
+	mov cl, 3
+	mov [degree], cl
+no_update_3:
+	mov [coef_3], dl ; copiando el valor del registro DL al coeficiente 3
+	mov cl, 0
+	cmp [byte_aux], cl
+	je read_coef_4
+	; Guardando complemento a 2 del número al ser negativo
+	neg dl
+	mov [coef_3], dl
 read_coef_4:
 	; COEFICIENTE 4
 	print text1_4, len_text1_4
-	print ln, 2
+	call READ_NUMBER ; llamando al procedimiento de lectura de número
+	cmp dl, 0
+	je no_update_4
+	; Actualizando el grado de la función
+	mov cl, 4
+	mov [degree], cl
+no_update_4:
+	mov [coef_4], dl ; copiando el valor del registro DL al coeficiente 4
+	mov cl, 0
+	cmp [byte_aux], cl
+	je read_coef_5
+	; Guardando complemento a 2 del número al ser negativo
+	neg dl
+	mov [coef_4], dl
 read_coef_5:
 	; COEFICIENTE 5
 	print text1_5, len_text1_5
-	print ln, 2
+	call READ_NUMBER ; llamando al procedimiento de lectura de número
+	cmp dl, 0
+	je no_update_5
+	; Actualizando el grado de la función
+	mov cl, 5
+	mov [degree], cl
+no_update_5:
+	mov [coef_5], dl ; copiando el valor del registro DL al coeficiente 5
+	mov cl, 0
+	cmp [byte_aux], cl
+	je end_coefs
+	; Guardando complemento a 2 del número al ser negativo
+	neg dl
+	mov [coef_5], dl
 end_coefs:
 	print success_1, len_succ_1
 	print ln, 2
@@ -349,58 +421,128 @@ OPTION_2:
 	print ln, 2
 	;Imprimiendo función
 	print text2_1, len_text2_1
+print_5:
 	mov al, [coef_5]
-	printNumber al
+	add al, 0 ; para activar la bandera de signo
+	jns no_complement_5
+	print minus, len_minus
+	mov al, [coef_5]
+	neg al
+	printNumber al ; imprimiendo el complemento a 2
 	print x_five, len_x_five
+	jmp print_4
+no_complement_5:
+	printNumber al ; imprimiendo el valor normal
+	print x_five, len_x_five
+print_4:
+	mov al, [coef_4]
+	add al, 0 ; para activar la bandera de signo
+	jns no_complement_4
+	print minus, len_minus
+	mov al, [coef_4]
+	neg al
+	printNumber al ; imprimiendo el complemento a 2
+	print x_four, len_x_four
+	jmp print_3
+no_complement_4:
 	print plus, len_plus
 	mov al, [coef_4]
-	printNumber al
+	printNumber al ; imprimiendo el valor normal
 	print x_four, len_x_four
+print_3:
+	mov al, [coef_3]
+	add al, 0 ; para activar la bandera de signo
+	jns no_complement_3
+	print minus, len_minus
+	mov al, [coef_3]
+	neg al
+	printNumber al ; imprimiendo el complemento a 2
+	print x_three, len_x_three
+	jmp print_2
+no_complement_3:
 	print plus, len_plus
 	mov al, [coef_3]
-	printNumber al
+	printNumber al ; imprimiendo el valor normal
 	print x_three, len_x_three
+print_2:
+	mov al, [coef_2]
+	add al, 0 ; para activar la bandera de signo
+	jns no_complement_2
+	print minus, len_minus
+	mov al, [coef_2]
+	neg al
+	printNumber al ; imprimiendo el complemento a 2
+	print x_two, len_x_two
+	jmp print_1
+no_complement_2:
 	print plus, len_plus
 	mov al, [coef_2]
-	printNumber al
+	printNumber al ; imprimiendo el valor normal
 	print x_two, len_x_two
+print_1:
+	mov al, [coef_1]
+	add al, 0 ; para activar la bandera de signo
+	jns no_complement_1
+	print minus, len_minus
+	mov al, [coef_1]
+	neg al
+	printNumber al ; imprimiendo el complemento a 2
+	print x_one, len_x_one
+	jmp print_0
+no_complement_1:
 	print plus, len_plus
 	mov al, [coef_1]
-	printNumber al
+	printNumber al ; imprimiendo el valor normal
 	print x_one, len_x_one
+print_0:
+	mov al, [coef_0]
+	add al, 0 ; para activar la bandera de signo
+	jns no_complement_0
+	print minus, len_minus
+	mov al, [coef_0]
+	neg al
+	printNumber al ; imprimiendo el complemento a 2
+	jmp end_print
+no_complement_0:
 	print plus, len_plus
 	mov al, [coef_0]
-	printNumber al
-
+	printNumber al ; imprimiendo el valor normal
+end_print:
 	print ln, 2
 	print ln, 2
 
 	jmp MENU
+
 
 OPTION_3:
 	print text3, len_text3
 	print ln, 2
 	jmp MENU
 
+
 OPTION_4:
 	print text4, len_text4
 	print ln, 2
 	jmp MENU
+
 
 OPTION_5:
 	print text5, len_text5
 	print ln, 2
 	jmp MENU
 
+
 OPTION_6:
 	print text6, len_text6
 	print ln, 2
 	jmp MENU
 
+
 OPTION_7:
 	print text7, len_text7
 	print ln, 2
 	jmp MENU
+
 
 EXIT_PROGRAM:
 	print text8, len_text8
