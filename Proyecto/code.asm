@@ -72,9 +72,116 @@ printTwoDigits cl
 jmp %%exit_macro
 %%one:
 add cl, 48	; ascii
-mov [byte_aux], cl
-print byte_aux, 1
+mov [byte_aux1], cl
+print byte_aux1, 1
 %%exit_macro:
+
+%endmacro
+
+;; MACRO IMPRIMIR NÚMERO DECIMAL PARA RESULTADO DE INTEGRALES
+; %1 -> parte entera
+; %2 -> residuo
+; %3 -> x type
+; %4 -> x len
+; %5 -> # coeficiente
+; %6 -> ¿Imprimir '+'? 1:y, 0:n
+%macro printDecimalNumber 6
+	; Activando la bandera de signo
+	mov al, %1
+	add al, 0
+	js %%negative
+	mov al, %2
+	add al, 0
+	js %%negative
+; POSITIVO
+	; imprimiendo el valor entero
+	mov al, %6
+	cmp al, 0
+	je %%no_sign
+	print plus, len_plus
+%%no_sign:
+	mov al, %1
+	printNumber al
+	; parte resigual
+	mov al, %2
+	cmp al, 0
+	je %%print1_x
+	; transformando parte residual a 1 decimal
+	print dot, 1
+	mov al, %2	
+	mov bl, 10	
+	mul bl ; en este punto, residuo * 10 = AL
+	mov ah, 0
+	mov bl, %5
+	div bl
+	printNumber al ; imprimiendo 1 decimal
+%%print1_x:
+	print %3, %4
+	jmp %%exit_print_decimal
+%%negative:
+	; imprimiendo el complemento a 2
+	print minus, len_minus
+	mov al, %1
+	neg al
+	printNumber al
+	; parte resigual
+	mov al, %2
+	cmp al, 0
+	je %%print2_x
+	; transformando parte residual a 1 decimal
+	print dot, 1
+	mov al, %2
+	neg al
+	mov bl, 10
+	mul bl ; en este punto, residuo * 10 = AL
+	mov ah, 0
+	mov bl, %5
+	div bl
+	printNumber al ; imprimiendo 1 decimal
+%%print2_x:
+	print %3, %4
+%%exit_print_decimal:
+
+%endmacro
+
+;; MACRO IMPRIMIR INTEGRAL COMO SUMA DE FRACCIONES
+; %1 -> numerador (coeficiente funcion original)
+; %2 -> denominador (# coeficiente actual)
+; %3 -> x type
+; %4 -> x len
+; %5 -> ¿Imprimir '+'? 1:y, 0:n
+%macro printFraction 5
+	; Activando la bandera de signo
+	mov al, %1
+	add al, 0
+	js %%negative_fraction
+; POSITIVO
+	; imprimiendo el valor entero
+	mov al, %5
+	cmp al, 0
+	je %%no_sign_fraction
+	print plus, len_plus
+%%no_sign_fraction:
+	mov al, %1
+	printNumber al
+	print slash, 1 ; /
+	mov al, %2
+	printNumber al
+	print space, 1
+	print %3, %4
+	jmp %%exit_print_fraction
+%%negative_fraction:
+	; imprimiendo el complemento a 2
+	print minus, len_minus
+	mov al, %1
+	neg al
+	printNumber al
+	print slash, 1 ; /
+	mov al, %2
+	printNumber al
+	print space, 1
+	print %3, %4
+%%exit_print_fraction:
 
 %endmacro
 
@@ -130,6 +237,9 @@ section .data
 	len_x_four	equ $-x_four
 	x_five		db	"x⁵"
 	len_x_five	equ $-x_five
+	; para integrales
+	x_six		db	"x⁶"
+	len_x_six	equ $-x_six
 
 	text3		db	"========== CALCULADORA ARQUI 1 - Elias Vasquez ==========", 0xA, 0xD, "(3) Imprimir la derivada de la funcion almacenada.", 0xA, 0xD
 	len_text3	equ	$-text3
@@ -140,6 +250,15 @@ section .data
 
 	text4		db	"========== CALCULADORA ARQUI 1 - Elias Vasquez ==========", 0xA, 0xD, "(4) Imprimir la integral de la funcion almacenada.", 0xA, 0xD
 	len_text4	equ	$-text4
+	text4_0		db	"INTEGRAL(f(x)dx) = "
+	len_text4_0	equ $-text4_0
+	text4_1		db	"Integral:", 0xA, 0xD
+	len_text4_1	equ $-text4_1
+	text4_2		db	"Integral truncada a 1 decimal:", 0xA, 0xD
+	len_text4_2	equ $-text4_2
+	slash		db	"/"
+	dot 		db 	"."
+	constant	db	"C"
 
 	text5		db	"========== CALCULADORA ARQUI 1 - Elias Vasquez ==========", 0xA, 0xD, "(5) Graficar la funcion original, derivada o integral.", 0xA, 0xD
 	len_text5	equ	$-text5
@@ -163,6 +282,8 @@ section .data
 
 	; salto de línea
 	ln  		db 	0xA, 0xD
+	; espacio
+	space 		db 	" "
 
 	;; DEFINIENDO COEFICIENTES DE FUNCIÓN ORIGINAL (-128 (-2⁷) hasta 128 (2⁷))
 	degree		db	0
@@ -173,11 +294,6 @@ section .data
 	coef_4		db	0
 	coef_5		db	0
 
-	;;;;;;;;;;;;; TODO
-	;; ADVERTENCIA SI NO HAY FUNCIÓN ALMACENADA (DEGREE == 0)
-	;; VER ENUNCIADO DE IMPRESIÓN
-
-	;;;;;;;;;;;;; TODO
 	;; DEFINIENDO COEFICIENTES DE DERIVADA (-128 (-2⁷) hasta 128 (2⁷))
 	deriv_deg	db	0
 	deriv_c0	db	0
@@ -185,6 +301,21 @@ section .data
 	deriv_c2	db	0
 	deriv_c3	db	0
 	deriv_c4	db	0
+	
+	;; DEFINIENDO PARTE ENTERA Y RESIDUAL DE INTEGRAL
+	integ_deg	db	0
+	integ_e1	db	0
+	integ_d1	db	0
+	integ_e2	db	0
+	integ_d2	db	0
+	integ_e3	db	0
+	integ_d3	db	0
+	integ_e4	db	0
+	integ_d4	db	0
+	integ_e5	db	0
+	integ_d5	db	0
+	integ_e6	db	0
+	integ_d6	db	0
 
 
 ;; RESERVANDO ESPACIOS
@@ -192,7 +323,9 @@ section .bss
 	; Buffer de lectura
 	buffer_in	resb 16
 	; Byte para almacenar texto
-	byte_aux	resb 1
+	byte_aux1	resb 1
+	byte_aux2	resb 1
+	byte_aux3	resb 1
 	; Bytes para almacenar cocientes y residuos
 	cociente 	resb 1
 	residuo		resb 1
@@ -203,7 +336,7 @@ section .text
 
 ;; PROCEDIMIENTO LECTURA DE NÚMERO
 ;; DL: Valor de coeficiente
-;; byte_aux: Positivo o negativo
+;; byte_aux1: Positivo o negativo
 READ_NUMBER:
 	read buffer_in, 16
 	cld
@@ -212,7 +345,7 @@ READ_NUMBER:
 
 	mov cl, 0 ; aux
 	mov dl, 0 ; coeficiente
-	mov [byte_aux], cl ; 0 positivo, 1 negativo
+	mov [byte_aux1], cl ; 0 positivo, 1 negativo
 
 	lodsb
 	; Verificando si se saltó el coeficiente
@@ -232,7 +365,7 @@ READ_NUMBER:
 	jmp entry_readNum_error
 with_minus:
 	mov cl, 1
-	mov [byte_aux], cl ; negativo
+	mov [byte_aux1], cl ; negativo
 	lodsb
 	cmp al, '0'
 	jb entry_readNum_error
@@ -266,7 +399,7 @@ reading:
 entry_readNum_error:
 	print error2, len_error2
 	mov dl, 0
-	mov [byte_aux], dl
+	mov [byte_aux1], dl
 exit_reading:
 	ret ;; Para que vuelva a la ejecución desde el punto en que se llamó
 
@@ -329,7 +462,7 @@ OPTION_1:
 	call READ_NUMBER ; llamando al procedimiento de lectura de número
 	mov [coef_0], dl ; copiando el valor del registro DL al coeficiente 0
 	mov cl, 0
-	cmp [byte_aux], cl
+	cmp [byte_aux1], cl
 	je read_coef_1
 	; Guardando complemento a 2 del número al ser negativo
 	neg dl
@@ -346,7 +479,7 @@ read_coef_1:
 no_update_1:
 	mov [coef_1], dl ; copiando el valor del registro DL al coeficiente 1
 	mov cl, 0
-	cmp [byte_aux], cl
+	cmp [byte_aux1], cl
 	je read_coef_2
 	; Guardando complemento a 2 del número al ser negativo
 	neg dl
@@ -363,7 +496,7 @@ read_coef_2:
 no_update_2:
 	mov [coef_2], dl ; copiando el valor del registro DL al coeficiente 2
 	mov cl, 0
-	cmp [byte_aux], cl
+	cmp [byte_aux1], cl
 	je read_coef_3
 	; Guardando complemento a 2 del número al ser negativo
 	neg dl
@@ -380,7 +513,7 @@ read_coef_3:
 no_update_3:
 	mov [coef_3], dl ; copiando el valor del registro DL al coeficiente 3
 	mov cl, 0
-	cmp [byte_aux], cl
+	cmp [byte_aux1], cl
 	je read_coef_4
 	; Guardando complemento a 2 del número al ser negativo
 	neg dl
@@ -397,7 +530,7 @@ read_coef_4:
 no_update_4:
 	mov [coef_4], dl ; copiando el valor del registro DL al coeficiente 4
 	mov cl, 0
-	cmp [byte_aux], cl
+	cmp [byte_aux1], cl
 	je read_coef_5
 	; Guardando complemento a 2 del número al ser negativo
 	neg dl
@@ -414,7 +547,7 @@ read_coef_5:
 no_update_5:
 	mov [coef_5], dl ; copiando el valor del registro DL al coeficiente 5
 	mov cl, 0
-	cmp [byte_aux], cl
+	cmp [byte_aux1], cl
 	je end_coefs
 	; Guardando complemento a 2 del número al ser negativo
 	neg dl
@@ -433,8 +566,8 @@ OPTION_2:
 	print text2_0, len_text2_0
 	mov al, [degree]
 	add al, 48 ; transformando a ascii
-	mov [byte_aux], al
-	print byte_aux, 1
+	mov [byte_aux1], al
+	print byte_aux1, 1
 	print ln, 2
 	;Imprimiendo función
 	print text2_1, len_text2_1
@@ -643,9 +776,142 @@ end_print_deriv:
 	jmp MENU
 
 
+;; INTEGRAL
 OPTION_4:
 	print text4, len_text4
 	print ln, 2
+
+	; TODO integ_deg
+
+	; CALCULANDO INTEGRAL
+	; Guardando la división truncada en los coeficientes del resultado
+	;coef_5 / 6 = integ_c6
+	mov al, [coef_5]
+	mov ah, 0
+	cbw ; Extendiendo el bit de signo de AL a AH para el residuo
+	mov bl, 6
+	idiv bl
+	mov [integ_e6], al
+	mov [integ_d6], ah
+	;coef_4 / 5 = integ_c5
+	mov al, [coef_4]
+	mov ah, 0
+	cbw ; Extendiendo el bit de signo de AL a AH para el residuo
+	mov bl, 5
+	idiv bl
+	mov [integ_e5], al
+	mov [integ_d5], ah
+	;coef_3 / 4 = integ_c4
+	mov al, [coef_3]
+	mov ah, 0
+	cbw ; Extendiendo el bit de signo de AL a AH para el residuo
+	mov bl, 4
+	idiv bl
+	mov [integ_e4], al
+	mov [integ_d4], ah
+	;coef_2 / 3 = integ_c3
+	mov al, [coef_2]
+	mov ah, 0
+	cbw ; Extendiendo el bit de signo de AL a AH para el residuo
+	mov bl, 3
+	idiv bl
+	mov [integ_e3], al
+	mov [integ_d3], ah
+	;coef_1 / 2 = integ_c2
+	mov al, [coef_1]
+	mov ah, 0
+	cbw ; Extendiendo el bit de signo de AL a AH para el residuo
+	mov bl, 2
+	idiv bl
+	mov [integ_e2], al
+	mov [integ_d2], ah
+	;coef_0 = integ_c1
+	mov al, [coef_0]
+	mov ah, 0
+	mov [integ_e1], al
+	mov [integ_d1], ah
+	;constante
+
+	; Mostrando la división tal cual
+	print text4_1, len_text4_1
+	print text4_0, len_text4_0
+
+	;; Parámetros macro printFraction
+	; %1 -> numerador (coeficiente funcion original)
+	; %2 -> denominador (# coeficiente actual)
+	; %3 -> x type
+	; %4 -> x len
+	; %5 -> ¿Imprimir '+'? 1:y, 0:n
+
+	mov al, 6
+	mov [byte_aux2], al
+	mov al, 0
+	mov [byte_aux3], al
+	printFraction [coef_5], [byte_aux2], x_six, len_x_six, [byte_aux3]
+	mov al, 5
+	mov [byte_aux2], al
+	mov al, 1
+	mov [byte_aux3], al
+	printFraction [coef_4], [byte_aux2], x_five, len_x_five, [byte_aux3]
+	mov al, 4
+	mov [byte_aux2], al
+	printFraction [coef_3], [byte_aux2], x_four, len_x_four, [byte_aux3]
+	mov al, 3
+	mov [byte_aux2], al
+	printFraction [coef_2], [byte_aux2], x_three, len_x_three, [byte_aux3]
+	mov al, 2
+	mov [byte_aux2], al
+	printFraction [coef_1], [byte_aux2], x_two, len_x_two, [byte_aux3]
+	mov al, 1
+	mov [byte_aux2], al
+	printFraction [coef_0], [byte_aux2], x_one, len_x_one, [byte_aux3]
+
+	print plus, len_plus
+	print constant, 1
+	print ln, 2
+	print ln, 2
+
+
+	; Mostrando la división truncada a 1 decimal
+	print text4_2, len_text4_2
+	print text4_0, len_text4_0
+
+	; Parámetros macro printDecimalNumber
+	; %1 -> parte entera
+	; %2 -> residuo
+	; %3 -> x type
+	; %4 -> x len
+	; %5 -> # coeficiente
+	; %6 -> ¿Imprimir '+'? 1:y, 0:n
+
+	mov al, 6
+	mov [byte_aux2], al
+	mov al, 0
+	mov [byte_aux3], al
+	printDecimalNumber [integ_e6], [integ_d6], x_six, len_x_six, [byte_aux2], [byte_aux3]
+	mov al, 5
+	mov [byte_aux2], al
+	mov al, 1
+	mov [byte_aux3], al
+	printDecimalNumber [integ_e5], [integ_d5], x_five, len_x_five, [byte_aux2], [byte_aux3]
+	mov al, 4
+	mov [byte_aux2], al
+	printDecimalNumber [integ_e4], [integ_d4], x_four, len_x_four, [byte_aux2], [byte_aux3]
+	mov al, 3
+	mov [byte_aux2], al
+	printDecimalNumber [integ_e3], [integ_d3], x_three, len_x_three, [byte_aux2], [byte_aux3]
+	mov al, 2
+	mov [byte_aux2], al
+	printDecimalNumber [integ_e2], [integ_d2], x_two, len_x_two, [byte_aux2], [byte_aux3]
+	mov al, 1
+	mov [byte_aux2], al
+	printDecimalNumber [integ_e1], [integ_d1], x_one, len_x_one, [byte_aux2], [byte_aux3]
+
+	print plus, len_plus
+	print constant, 1
+	print ln, 2
+	print ln, 2
+
 	jmp MENU
 
 
