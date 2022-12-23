@@ -280,13 +280,17 @@ section .data
 	error2		db	"> Error, se detecto una entrada invalida. Valor a asignar al coeficiente: 0", 0xA, 0xD
 	len_error2	equ	$-error2
 
+	; warning, no hay función declarada
+	warning1	db "> No se encontro ninguna funcion almacenada. Seleccione opcion 1) para almacenar una funcion.", 0xA, 0xD
+	len_warning1 equ $-warning1
+
 	; salto de línea
 	ln  		db 	0xA, 0xD
 	; espacio
 	space 		db 	" "
 
 	;; DEFINIENDO COEFICIENTES DE FUNCIÓN ORIGINAL (-128 (-2⁷) hasta 128 (2⁷))
-	degree		db	0
+	degree		db	10 ; valor para indicar que no hay función
 	coef_0		db	0
 	coef_1		db	0
 	coef_2		db	0
@@ -317,6 +321,10 @@ section .data
 	integ_e6	db	0
 	integ_d6	db	0
 
+	;; LIMPIANDO TERMINAL
+	clear 		db 	27,"[H",27,"[2J"    ; <ESC> [H <ESC> [2J
+	len_clear 	equ	$-clear
+
 
 ;; RESERVANDO ESPACIOS
 section .bss
@@ -334,9 +342,18 @@ section .bss
 ;; ÁREA DE CÓDIGO
 section .text
 
+;; PROCEDIMIENTO LIMPIEZA DE PANTALLA
+CLEAR_TERMINAL:
+	mov eax, 4
+	mov ebx, 1
+	mov ecx, clear
+	mov edx, len_clear
+	int 80h
+	ret ;; Para que vuelva a la ejecución desde el punto en que se llamó
+
 ;; PROCEDIMIENTO LECTURA DE NÚMERO
-;; DL: Valor de coeficiente
-;; byte_aux1: Positivo o negativo
+; DL: Valor de coeficiente
+; byte_aux1: Positivo o negativo
 READ_NUMBER:
 	read buffer_in, 16
 	cld
@@ -454,14 +471,23 @@ entry_error:
 
 
 OPTION_1:
+	call CLEAR_TERMINAL
+
 	;; Ingresar los coeficientes de la funcion
 	print text1, len_text1
+
+	mov cl, 10
+	mov [degree], cl ; para indicar que no hay función
 
 	; COEFICIENTE 0
 	print text1_0, len_text1_0
 	call READ_NUMBER ; llamando al procedimiento de lectura de número
 	mov [coef_0], dl ; copiando el valor del registro DL al coeficiente 0
+	cmp dl, 0
+	je read_coef_1
+	; No es cero el coeficiente
 	mov cl, 0
+	mov [degree], cl
 	cmp [byte_aux1], cl
 	je read_coef_1
 	; Guardando complemento a 2 del número al ser negativo
@@ -560,8 +586,20 @@ end_coefs:
 
 
 OPTION_2:
+	call CLEAR_TERMINAL
+	
 	print text2, len_text2
 	print ln, 2
+
+	; Validando que exista función almacenada
+	mov al, [degree]
+	cmp al, 10
+	jne ok_option2
+	print warning1, len_warning1
+	print ln, 2
+	jmp MENU
+
+ok_option2:
 	; Imprimiendo grado de función
 	print text2_0, len_text2_0
 	mov al, [degree]
@@ -665,8 +703,20 @@ end_print:
 
 ;; DERIVADA
 OPTION_3:
+	call CLEAR_TERMINAL
+	
 	print text3, len_text3
 	print ln, 2
+
+	; Validando que exista función almacenada
+	mov al, [degree]
+	cmp al, 10
+	jne ok_option3
+	print warning1, len_warning1
+	print ln, 2
+	jmp MENU
+
+ok_option3:
 
 	; Calculando derivada
 	; TODO deriv_deg
@@ -778,8 +828,20 @@ end_print_deriv:
 
 ;; INTEGRAL
 OPTION_4:
+	call CLEAR_TERMINAL
+	
 	print text4, len_text4
 	print ln, 2
+
+	; Validando que exista función almacenada
+	mov al, [degree]
+	cmp al, 10
+	jne ok_option4
+	print warning1, len_warning1
+	print ln, 2
+	jmp MENU
+
+ok_option4:
 
 	; TODO integ_deg
 
@@ -916,20 +978,59 @@ OPTION_4:
 
 
 OPTION_5:
+	call CLEAR_TERMINAL
+	
 	print text5, len_text5
 	print ln, 2
+
+	; Validando que exista función almacenada
+	mov al, [degree]
+	cmp al, 10
+	jne ok_option5
+	print warning1, len_warning1
+	print ln, 2
+	jmp MENU
+
+ok_option5:
+
 	jmp MENU
 
 
 OPTION_6:
+	call CLEAR_TERMINAL
+	
 	print text6, len_text6
 	print ln, 2
+
+	; Validando que exista función almacenada
+	mov al, [degree]
+	cmp al, 10
+	jne ok_option6
+	print warning1, len_warning1
+	print ln, 2
+	jmp MENU
+
+ok_option6:
+
 	jmp MENU
 
 
 OPTION_7:
+	call CLEAR_TERMINAL
+	
 	print text7, len_text7
 	print ln, 2
+
+	; Validando que exista función almacenada
+	mov al, [degree]
+	cmp al, 10
+	jne ok_option7
+	print warning1, len_warning1
+	print ln, 2
+	jmp MENU
+
+ok_option7:
+
 	jmp MENU
 
 
