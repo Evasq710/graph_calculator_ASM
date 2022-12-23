@@ -611,6 +611,8 @@ ok_option2:
 	print text2_1, len_text2_1
 print_5:
 	mov al, [coef_5]
+	cmp al, 0
+	je print_4 ; saltando este coeficiente en caso sea cero
 	add al, 0 ; para activar la bandera de signo
 	jns no_complement_5
 	print minus, len_minus
@@ -624,6 +626,8 @@ no_complement_5:
 	print x_five, len_x_five
 print_4:
 	mov al, [coef_4]
+	cmp al, 0
+	je print_3 ; saltando este coeficiente en caso sea cero
 	add al, 0 ; para activar la bandera de signo
 	jns no_complement_4
 	print minus, len_minus
@@ -633,12 +637,18 @@ print_4:
 	print x_four, len_x_four
 	jmp print_3
 no_complement_4:
+	mov al, [degree]
+	cmp al, 4
+	je first_4
 	print plus, len_plus
+first_4:
 	mov al, [coef_4]
 	printNumber al ; imprimiendo el valor normal
 	print x_four, len_x_four
 print_3:
 	mov al, [coef_3]
+	cmp al, 0
+	je print_2 ; saltando este coeficiente en caso sea cero
 	add al, 0 ; para activar la bandera de signo
 	jns no_complement_3
 	print minus, len_minus
@@ -648,12 +658,18 @@ print_3:
 	print x_three, len_x_three
 	jmp print_2
 no_complement_3:
+	mov al, [degree]
+	cmp al, 3
+	je first_3
 	print plus, len_plus
+first_3:
 	mov al, [coef_3]
 	printNumber al ; imprimiendo el valor normal
 	print x_three, len_x_three
 print_2:
 	mov al, [coef_2]
+	cmp al, 0
+	je print_1 ; saltando este coeficiente en caso sea cero
 	add al, 0 ; para activar la bandera de signo
 	jns no_complement_2
 	print minus, len_minus
@@ -663,12 +679,18 @@ print_2:
 	print x_two, len_x_two
 	jmp print_1
 no_complement_2:
+	mov al, [degree]
+	cmp al, 2
+	je first_2
 	print plus, len_plus
+first_2:
 	mov al, [coef_2]
 	printNumber al ; imprimiendo el valor normal
 	print x_two, len_x_two
 print_1:
 	mov al, [coef_1]
+	cmp al, 0
+	je print_0 ; saltando este coeficiente en caso sea cero
 	add al, 0 ; para activar la bandera de signo
 	jns no_complement_1
 	print minus, len_minus
@@ -678,12 +700,18 @@ print_1:
 	print x_one, len_x_one
 	jmp print_0
 no_complement_1:
+	mov al, [degree]
+	cmp al, 1
+	je first_1
 	print plus, len_plus
+first_1:
 	mov al, [coef_1]
 	printNumber al ; imprimiendo el valor normal
 	print x_one, len_x_one
 print_0:
 	mov al, [coef_0]
+	cmp al, 0
+	je end_print ; saltando este coeficiente en caso sea cero
 	add al, 0 ; para activar la bandera de signo
 	jns no_complement_0
 	print minus, len_minus
@@ -692,7 +720,11 @@ print_0:
 	printNumber al ; imprimiendo el complemento a 2
 	jmp end_print
 no_complement_0:
+	mov al, [degree]
+	cmp al, 0
+	je first_0
 	print plus, len_plus
+first_0:
 	mov al, [coef_0]
 	printNumber al ; imprimiendo el valor normal
 end_print:
@@ -749,6 +781,8 @@ ok_option3:
 	print text3_1, len_text3_1 ; f'(x) =
 print_d4:
 	mov al, [deriv_c4]
+	cmp al, 0
+	je print_d3 ; saltando este coeficiente en caso sea cero
 	add al, 0 ; para activar la bandera de signo
 	jns no_complement_d4
 	print minus, len_minus
@@ -763,6 +797,8 @@ no_complement_d4:
 	print x_four, len_x_four
 print_d3:
 	mov al, [deriv_c3]
+	cmp al, 0
+	je print_d2 ; saltando este coeficiente en caso sea cero
 	add al, 0 ; para activar la bandera de signo
 	jns no_complement_d3
 	print minus, len_minus
@@ -772,12 +808,18 @@ print_d3:
 	print x_three, len_x_three
 	jmp print_d2
 no_complement_d3:
+	mov al, [degree]
+	cmp al, 4
+	je first_d3
 	print plus, len_plus
+first_d3:
 	mov al, [deriv_c3]
 	printNumber al ; imprimiendo el valor normal
 	print x_three, len_x_three
 print_d2:
 	mov al, [deriv_c2]
+	cmp al, 0
+	je print_d1 ; saltando este coeficiente en caso sea cero
 	add al, 0 ; para activar la bandera de signo
 	jns no_complement_d2
 	print minus, len_minus
@@ -787,12 +829,18 @@ print_d2:
 	print x_two, len_x_two
 	jmp print_d1
 no_complement_d2:
+	mov al, [degree]
+	cmp al, 3
+	je first_d2
 	print plus, len_plus
+first_d2:
 	mov al, [deriv_c2]
 	printNumber al ; imprimiendo el valor normal
 	print x_two, len_x_two
 print_d1:
 	mov al, [deriv_c1]
+	cmp al, 0
+	je print_d0 ; saltando este coeficiente en caso sea cero
 	add al, 0 ; para activar la bandera de signo
 	jns no_complement_d1
 	print minus, len_minus
@@ -802,7 +850,11 @@ print_d1:
 	print x_one, len_x_one
 	jmp print_d0
 no_complement_d1:
+	mov al, [degree]
+	cmp al, 2
+	je first_d1
 	print plus, len_plus
+first_d1:
 	mov al, [deriv_c1]
 	printNumber al ; imprimiendo el valor normal
 	print x_one, len_x_one
@@ -816,7 +868,13 @@ print_d0:
 	printNumber al ; imprimiendo el complemento a 2
 	jmp end_print_deriv
 no_complement_d0:
+	mov al, [degree]
+	cmp al, 1
+	je first_d0
+	cmp al, 0
+	je first_d0
 	print plus, len_plus
+first_d0:
 	mov al, [deriv_c0]
 	printNumber al ; imprimiendo el valor normal
 end_print_deriv:
@@ -905,29 +963,86 @@ ok_option4:
 	; %4 -> x len
 	; %5 -> ¿Imprimir '+'? 1:y, 0:n
 
+print_fraction6:
+	mov al, [coef_5]
+	cmp al, 0
+	je print_fraction5 ; saltando este en caso sea cero
 	mov al, 6
 	mov [byte_aux2], al
 	mov al, 0
 	mov [byte_aux3], al
 	printFraction [coef_5], [byte_aux2], x_six, len_x_six, [byte_aux3]
+print_fraction5:
+	mov al, [coef_4]
+	cmp al, 0
+	je print_fraction4 ; saltando este en caso sea cero
 	mov al, 5
 	mov [byte_aux2], al
+	mov al, 0
+	mov bl, [degree]
+	cmp bl, 4
+	je no_sign_fraction5
 	mov al, 1
+no_sign_fraction5:
 	mov [byte_aux3], al
 	printFraction [coef_4], [byte_aux2], x_five, len_x_five, [byte_aux3]
+print_fraction4:
+	mov al, [coef_3]
+	cmp al, 0
+	je print_fraction3 ; saltando este en caso sea cero
 	mov al, 4
 	mov [byte_aux2], al
+	mov al, 0
+	mov bl, [degree]
+	cmp bl, 3
+	je no_sign_fraction4
+	mov al, 1
+no_sign_fraction4:
+	mov [byte_aux3], al
 	printFraction [coef_3], [byte_aux2], x_four, len_x_four, [byte_aux3]
+print_fraction3:
+	mov al, [coef_2]
+	cmp al, 0
+	je print_fraction2 ; saltando este en caso sea cero
 	mov al, 3
 	mov [byte_aux2], al
+	mov al, 0
+	mov bl, [degree]
+	cmp bl, 2
+	je no_sign_fraction3
+	mov al, 1
+no_sign_fraction3:
+	mov [byte_aux3], al
 	printFraction [coef_2], [byte_aux2], x_three, len_x_three, [byte_aux3]
+print_fraction2:
+	mov al, [coef_1]
+	cmp al, 0
+	je print_fraction1 ; saltando este en caso sea cero
 	mov al, 2
 	mov [byte_aux2], al
+	mov al, 0
+	mov bl, [degree]
+	cmp bl, 1
+	je no_sign_fraction2
+	mov al, 1
+no_sign_fraction2:
+	mov [byte_aux3], al
 	printFraction [coef_1], [byte_aux2], x_two, len_x_two, [byte_aux3]
+print_fraction1:
+	mov al, [coef_0]
+	cmp al, 0
+	je print_fraction_const ; saltando este en caso sea cero
 	mov al, 1
 	mov [byte_aux2], al
+	mov al, 0
+	mov bl, [degree]
+	cmp bl, 0
+	je no_sign_fraction1
+	mov al, 1
+no_sign_fraction1:
+	mov [byte_aux3], al
 	printFraction [coef_0], [byte_aux2], x_one, len_x_one, [byte_aux3]
-
+print_fraction_const:
 	print plus, len_plus
 	print constant, 1
 	print ln, 2
@@ -946,29 +1061,86 @@ ok_option4:
 	; %5 -> # coeficiente
 	; %6 -> ¿Imprimir '+'? 1:y, 0:n
 
+print_decimal6:
+	mov al, [coef_5]
+	cmp al, 0
+	je print_decimal5 ; saltando este en caso sea cero
 	mov al, 6
 	mov [byte_aux2], al
 	mov al, 0
 	mov [byte_aux3], al
 	printDecimalNumber [integ_e6], [integ_d6], x_six, len_x_six, [byte_aux2], [byte_aux3]
+print_decimal5:
+	mov al, [coef_4]
+	cmp al, 0
+	je print_decimal4 ; saltando este en caso sea cero
 	mov al, 5
 	mov [byte_aux2], al
+	mov al, 0
+	mov bl, [degree]
+	cmp bl, 4
+	je no_sign_decimal5
 	mov al, 1
+no_sign_decimal5:
 	mov [byte_aux3], al
 	printDecimalNumber [integ_e5], [integ_d5], x_five, len_x_five, [byte_aux2], [byte_aux3]
+print_decimal4:
+	mov al, [coef_3]
+	cmp al, 0
+	je print_decimal3 ; saltando este en caso sea cero
 	mov al, 4
 	mov [byte_aux2], al
+	mov al, 0
+	mov bl, [degree]
+	cmp bl, 3
+	je no_sign_decimal4
+	mov al, 1
+no_sign_decimal4:
+	mov [byte_aux3], al
 	printDecimalNumber [integ_e4], [integ_d4], x_four, len_x_four, [byte_aux2], [byte_aux3]
+print_decimal3:
+	mov al, [coef_2]
+	cmp al, 0
+	je print_decimal2 ; saltando este en caso sea cero
 	mov al, 3
 	mov [byte_aux2], al
+	mov al, 0
+	mov bl, [degree]
+	cmp bl, 2
+	je no_sign_decimal3
+	mov al, 1
+no_sign_decimal3:
+	mov [byte_aux3], al
 	printDecimalNumber [integ_e3], [integ_d3], x_three, len_x_three, [byte_aux2], [byte_aux3]
+print_decimal2:
+	mov al, [coef_1]
+	cmp al, 0
+	je print_decimal1 ; saltando este en caso sea cero
 	mov al, 2
 	mov [byte_aux2], al
+	mov al, 0
+	mov bl, [degree]
+	cmp bl, 1
+	je no_sign_decimal2
+	mov al, 1
+no_sign_decimal2:
+	mov [byte_aux3], al
 	printDecimalNumber [integ_e2], [integ_d2], x_two, len_x_two, [byte_aux2], [byte_aux3]
+print_decimal1:
+	mov al, [coef_0]
+	cmp al, 0
+	je print_decimal_const ; saltando este en caso sea cero
 	mov al, 1
 	mov [byte_aux2], al
+	mov al, 0
+	mov bl, [degree]
+	cmp bl, 0
+	je no_sign_decimal1
+	mov al, 1
+no_sign_decimal1:
+	mov [byte_aux3], al
 	printDecimalNumber [integ_e1], [integ_d1], x_one, len_x_one, [byte_aux2], [byte_aux3]
-
+print_decimal_const:
 	print plus, len_plus
 	print constant, 1
 	print ln, 2
