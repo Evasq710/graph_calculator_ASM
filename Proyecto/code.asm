@@ -120,7 +120,7 @@ section .data
 	len_plus	equ	$-plus
 	minus		db	" - "
 	len_minus	equ	$-minus
-	x_one		db	"x¹"
+	x_one		db	"x"
 	len_x_one	equ $-x_one
 	x_two		db	"x²"
 	len_x_two	equ $-x_two
@@ -133,6 +133,10 @@ section .data
 
 	text3		db	"========== CALCULADORA ARQUI 1 - Elias Vasquez ==========", 0xA, 0xD, "(3) Imprimir la derivada de la funcion almacenada.", 0xA, 0xD
 	len_text3	equ	$-text3
+	text3_0		db	"Derivada:", 0xA, 0xD
+	len_text3_0	equ $-text3_0
+	text3_1		db	"f", 39 , "(x) = "
+	len_text3_1	equ $-text3_1
 
 	text4		db	"========== CALCULADORA ARQUI 1 - Elias Vasquez ==========", 0xA, 0xD, "(4) Imprimir la integral de la funcion almacenada.", 0xA, 0xD
 	len_text4	equ	$-text4
@@ -160,7 +164,7 @@ section .data
 	; salto de línea
 	ln  		db 	0xA, 0xD
 
-	;; DEFINIENDO COEFICIENTES (-128 (-2⁷) hasta 128 (2⁷))
+	;; DEFINIENDO COEFICIENTES DE FUNCIÓN ORIGINAL (-128 (-2⁷) hasta 128 (2⁷))
 	degree		db	0
 	coef_0		db	0
 	coef_1		db	0
@@ -168,6 +172,19 @@ section .data
 	coef_3		db	0
 	coef_4		db	0
 	coef_5		db	0
+
+	;;;;;;;;;;;;; TODO
+	;; ADVERTENCIA SI NO HAY FUNCIÓN ALMACENADA (DEGREE == 0)
+	;; VER ENUNCIADO DE IMPRESIÓN
+
+	;;;;;;;;;;;;; TODO
+	;; DEFINIENDO COEFICIENTES DE DERIVADA (-128 (-2⁷) hasta 128 (2⁷))
+	deriv_deg	db	0
+	deriv_c0	db	0
+	deriv_c1	db	0
+	deriv_c2	db	0
+	deriv_c3	db	0
+	deriv_c4	db	0
 
 
 ;; RESERVANDO ESPACIOS
@@ -513,10 +530,116 @@ end_print:
 
 	jmp MENU
 
-
+;; DERIVADA
 OPTION_3:
 	print text3, len_text3
 	print ln, 2
+
+	; Calculando derivada
+	; TODO deriv_deg
+	;5*coef_5 = deriv_c4
+	mov al, [coef_5]
+	mov bl, 5
+	mul bl
+	mov [deriv_c4], al
+	;4*coef_4 = deriv_c3
+	mov al, [coef_4]
+	mov bl, 4
+	mul bl
+	mov [deriv_c3], al
+	;3*coef_3 = deriv_c2
+	mov al, [coef_3]
+	mov bl, 3
+	mul bl
+	mov [deriv_c2], al
+	;2*coef_2 = deriv_c1
+	mov al, [coef_2]
+	mov bl, 2
+	mul bl
+	mov [deriv_c1], al
+	;coef_1 = deriv_c0
+	mov al, [coef_1]
+	mov [deriv_c0], al
+	
+	; Imprimiendo derivada
+	print text3_0, len_text3_0
+	print text3_1, len_text3_1 ; f'(x) =
+print_d4:
+	mov al, [deriv_c4]
+	add al, 0 ; para activar la bandera de signo
+	jns no_complement_d4
+	print minus, len_minus
+	mov al, [deriv_c4]
+	neg al
+	printNumber al ; imprimiendo el complemento a 2
+	print x_four, len_x_four
+	jmp print_d3
+no_complement_d4:
+	mov al, [deriv_c4]
+	printNumber al ; imprimiendo el valor normal
+	print x_four, len_x_four
+print_d3:
+	mov al, [deriv_c3]
+	add al, 0 ; para activar la bandera de signo
+	jns no_complement_d3
+	print minus, len_minus
+	mov al, [deriv_c3]
+	neg al
+	printNumber al ; imprimiendo el complemento a 2
+	print x_three, len_x_three
+	jmp print_d2
+no_complement_d3:
+	print plus, len_plus
+	mov al, [deriv_c3]
+	printNumber al ; imprimiendo el valor normal
+	print x_three, len_x_three
+print_d2:
+	mov al, [deriv_c2]
+	add al, 0 ; para activar la bandera de signo
+	jns no_complement_d2
+	print minus, len_minus
+	mov al, [deriv_c2]
+	neg al
+	printNumber al ; imprimiendo el complemento a 2
+	print x_two, len_x_two
+	jmp print_d1
+no_complement_d2:
+	print plus, len_plus
+	mov al, [deriv_c2]
+	printNumber al ; imprimiendo el valor normal
+	print x_two, len_x_two
+print_d1:
+	mov al, [deriv_c1]
+	add al, 0 ; para activar la bandera de signo
+	jns no_complement_d1
+	print minus, len_minus
+	mov al, [deriv_c1]
+	neg al
+	printNumber al ; imprimiendo el complemento a 2
+	print x_one, len_x_one
+	jmp print_d0
+no_complement_d1:
+	print plus, len_plus
+	mov al, [deriv_c1]
+	printNumber al ; imprimiendo el valor normal
+	print x_one, len_x_one
+print_d0:
+	mov al, [deriv_c0]
+	add al, 0 ; para activar la bandera de signo
+	jns no_complement_d0
+	print minus, len_minus
+	mov al, [deriv_c0]
+	neg al
+	printNumber al ; imprimiendo el complemento a 2
+	jmp end_print_deriv
+no_complement_d0:
+	print plus, len_plus
+	mov al, [deriv_c0]
+	printNumber al ; imprimiendo el valor normal
+end_print_deriv:
+	print ln, 2
+	print ln, 2
+
 	jmp MENU
 
 
