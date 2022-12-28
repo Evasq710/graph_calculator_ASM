@@ -1,3 +1,6 @@
+;****************************************************************
+; DEFINICIÓN DE MACROS
+;****************************************************************
 
 ;; MACRO ESCRITURA EN PANTALLA
 %macro print 2
@@ -73,6 +76,85 @@ printTwoDigits cl
 jmp %%exit_macro
 %%one:
 add cl, 48	; ascii
+mov [byte_aux1], cl
+print byte_aux1, 1
+%%exit_macro:
+
+%endmacro
+
+;; MACRO IMPRIMIR NUM DE 4 DIGITOS GUARDADO EN 2 BYTES
+%macro printWordFourDigits 1
+mov bx, 1000; BX: Fuente de 16 bits
+mov ax, %1	; AX: Resultado
+mov dx, 0	; DX: Residuo
+
+div bx 		;Dividiendo AX / BX
+mov [word_aux1], dx
+
+add ax, 48 ; ascii
+mov [byte_aux1], al
+print byte_aux1, 1
+
+printWordThreeDigits [word_aux1]
+%endmacro
+
+;; MACRO IMPRIMIR NUM DE 3 DIGITOS GUARDADO EN 2 BYTES
+%macro printWordThreeDigits 1
+mov bx, 100	; BX: Fuente de 16 bits
+mov ax, %1	; AX: Resultado
+mov dx, 0	; DX: Residuo
+
+div bx ;Dividiendo AX / BX
+mov [word_aux1], dl
+
+add ax, 48 ; ascii
+mov [byte_aux1], al
+print byte_aux1, 1
+
+printTwoDigits [word_aux1]
+%endmacro
+
+;; MACRO IMPRIMIR NÚMERO GUARDADO EN 2 BYTES
+%macro printWordNumber 1
+mov cx, %1
+
+mov bx, 1000	; BX: Fuente de 16 bits
+mov ax, cx	; AX: Resultado
+mov dx, 0	; DX: Residuo
+
+div bx 		;Dividiendo AX / BX
+cmp ax, 0
+jne %%four	;Si el resultado no es cero, 4 digitos
+
+mov bx, 100	; BX: Fuente de 16 bits
+mov ax, cx	; AX: Resultado
+mov dx, 0	; DX: Residuo
+
+div bx 		;Dividiendo AX / BX
+cmp ax, 0
+jne %%three	;Si el resultado no es cero, 3 digitos
+
+mov bx, 10
+mov ax, cx	; AX: Resultado
+mov dx, 0	; DX: Residuo
+
+div bx	;Dividiendo AX / BX
+cmp ax, 0
+jne %%two	;Si el resultado no es cero, 2 digitos
+
+jmp %%one	;Un digito
+
+%%four:
+printWordFourDigits cx
+jmp %%exit_macro
+%%three:
+printWordThreeDigits cx
+jmp %%exit_macro
+%%two:
+printTwoDigits cl
+jmp %%exit_macro
+%%one:
+add cx, 48	; ascii
 mov [byte_aux1], cl
 print byte_aux1, 1
 %%exit_macro:
