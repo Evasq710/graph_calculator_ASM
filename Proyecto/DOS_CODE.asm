@@ -277,8 +277,248 @@ mov cx, %2
 int 0x21
 %endmacro
 
+;; MACRO f(x)
+; %1 -> x a evaluar en la función original
+; El resultado se almacena en la variabe f_x
+%macro evaluateOriginalFunction 1
+	xor ax, ax
+	xor dx, dx ; dx tendrá el resultado de la función
+	mov al, [coef_0]
+	cbw ; extendiendo el signo a AX
+	mov dx, ax
+	
+	; AX = coef_1 * %1
+	xor ax, ax
+	mov bl, [coef_1]
+	mov al, %1
+	imul bl ; (AL * BL = AH:AL)
+	test ax, ax ; para activar la bandera de signo
+	js %%evaluate_negative1
+	; DX += AX
+	add dx, ax
+	jmp %%evaluate_coef2
+%%evaluate_negative1:
+	add dx, ax
+	jnc %%evaluate_coef2
+	; hay acarreo
+	mov cx, 32768 ; 10000000 00000000
+	or dx, cx ; colocando el MSB en 1 para indicar que es negativo
 
+	; AX = coef_2 * (%1 ^ 2)
+%%evaluate_coef2:
+	mov al, %1
+	mov bl, %1
+	imul bl ; AX = (%1 ^ 2)
+	mov bx, ax
+	xor ax, ax
+	mov al, [coef_2]
+	cbw ; extendiendo el signo del coeficiente a AX
+	mov [f_x], dx ; para no perder el valor de DX
+	imul bx ; (AX * BX = DX:AX)
+	jo %%OF2
+	; no hay OF, el signo resultante está en AX
+	jmp %%test_coef2
+%%OF2:
+	; hay OF, el signo resultante está en DX
+	test dx, dx
+	jns %%test_coef2
+	; colocando el MSB de AX en 1 para indicar que es negativo
+	mov cx, 32768 ; 10000000 00000000
+	or ax, cx
+%%test_coef2:
+	mov dx, [f_x] ; recuperando DX
+	test ax, ax ; para activar la bandera de signo
+	js %%evaluate_negative2
+	; DX += AX
+	add dx, ax
+	jmp %%evaluate_coef3
+%%evaluate_negative2:
+	add dx, ax
+	jnc %%evaluate_coef3
+	; hay acarreo
+	mov cx, 32768 ; 10000000 00000000
+	or dx, cx ; colocando el MSB en 1 para indicar que es negativo
+
+	; AX = coef_3 * (%1 ^ 3)
+%%evaluate_coef3:
+	mov [f_x], dx ; para no perder el valor de DX
+	xor ax, ax
+	xor bx, bx
+	xor cx, cx
+	mov cx, 2 ;para el loop
+	mov al, %1
+	cbw ; extendiendo el signo a AX
+	mov bx, ax ; copiandolo en bx
+	; LOOP: AX = (%1 ^ 3)
+%%loop3:
+	imul bx ; (AX * BX = DX:AX)
+	jo %%OF_AX3
+	; no hay OF, el signo resultante está en AX
+	jmp %%end_loop3
+%%OF_AX3:
+	; hay OF, el signo resultante está en DX
+	test dx, dx
+	jns %%end_loop3
+	; colocando el MSB de AX en 1 para indicar que es negativo
+	mov dx, 32768 ; 10000000 00000000
+	or ax, dx
+%%end_loop3:
+	loop %%loop3
+	; AX = (%1 ^ 3)
+	mov bx, ax
+	xor ax, ax
+	xor dx, dx
+	mov al, [coef_3]
+	cbw ; extendiendo el signo del coeficiente a AX
+	imul bx ; (AX * BX = DX:AX)
+	jo %%OF3
+	; no hay OF, el signo resultante está en AX
+	jmp %%test_coef3
+%%OF3:
+	; hay OF, el signo resultante está en DX
+	test dx, dx
+	jns %%test_coef3
+	; colocando el MSB de AX en 1 para indicar que es negativo
+	mov cx, 32768 ; 10000000 00000000
+	or ax, cx
+%%test_coef3:
+	mov dx, [f_x] ; recuperando DX
+	test ax, ax ; para activar la bandera de signo
+	js %%evaluate_negative3
+	; DX += AX
+	add dx, ax
+	jmp %%evaluate_coef4
+%%evaluate_negative3:
+	add dx, ax
+	jnc %%evaluate_coef4
+	; hay acarreo
+	mov cx, 32768 ; 10000000 00000000
+	or dx, cx ; colocando el MSB en 1 para indicar que es negativo
+
+	; AX = coef_4 * (%1 ^ 4)
+%%evaluate_coef4:
+	mov [f_x], dx ; para no perder el valor de DX
+	xor ax, ax
+	xor bx, bx
+	xor cx, cx
+	mov cx, 3 ;para el loop
+	mov al, %1
+	cbw ; extendiendo el signo a AX
+	mov bx, ax ; copiandolo en bx
+	; LOOP: AX = (%1 ^ 4)
+%%loop4:
+	imul bx ; (AX * BX = DX:AX)
+	jo %%OF_AX4
+	; no hay OF, el signo resultante está en AX
+	jmp %%end_loop4
+%%OF_AX4:
+	; hay OF, el signo resultante está en DX
+	test dx, dx
+	jns %%end_loop4
+	; colocando el MSB de AX en 1 para indicar que es negativo
+	mov dx, 32768 ; 10000000 00000000
+	or ax, dx
+%%end_loop4:
+	loop %%loop4
+	; AX = (%1 ^ 4)
+	mov bx, ax
+	xor ax, ax
+	xor dx, dx
+	mov al, [coef_4]
+	cbw ; extendiendo el signo del coeficiente a AX
+	imul bx ; (AX * BX = DX:AX)
+	jo %%OF4
+	; no hay OF, el signo resultante está en AX
+	jmp %%test_coef4
+%%OF4:
+	; hay OF, el signo resultante está en DX
+	test dx, dx
+	jns %%test_coef4
+	; colocando el MSB de AX en 1 para indicar que es negativo
+	mov cx, 32768 ; 10000000 00000000
+	or ax, cx
+%%test_coef4:
+	mov dx, [f_x] ; recuperando DX
+	test ax, ax ; para activar la bandera de signo
+	js %%evaluate_negative4
+	; DX += AX
+	add dx, ax
+	jmp %%evaluate_coef5
+%%evaluate_negative4:
+	add dx, ax
+	jnc %%evaluate_coef5
+	; hay acarreo
+	mov cx, 32768 ; 10000000 00000000
+	or dx, cx ; colocando el MSB en 1 para indicar que es negativo
+
+	; AX = coef_5 * (%1 ^ 5)
+%%evaluate_coef5:
+	mov [f_x], dx ; para no perder el valor de DX
+	xor ax, ax
+	xor bx, bx
+	xor cx, cx
+	mov cx, 4 ;para el loop
+	mov al, %1
+	cbw ; extendiendo el signo a AX
+	mov bx, ax ; copiandolo en bx
+	; LOOP: AX = (%1 ^ 5)
+%%loop5:
+	imul bx ; (AX * BX = DX:AX)
+	jo %%OF_AX5
+	; no hay OF, el signo resultante está en AX
+	jmp %%end_loop5
+%%OF_AX5:
+	; hay OF, el signo resultante está en DX
+	test dx, dx
+	jns %%end_loop5
+	; colocando el MSB de AX en 1 para indicar que es negativo
+	mov dx, 32768 ; 10000000 00000000
+	or ax, dx
+%%end_loop5:
+	loop %%loop5
+	; AX = (%1 ^ 5)
+	mov bx, ax
+	xor ax, ax
+	xor dx, dx
+	mov al, [coef_5]
+	cbw ; extendiendo el signo del coeficiente a AX
+	imul bx ; (AX * BX = DX:AX)
+	jo %%OF5
+	; no hay OF, el signo resultante está en AX
+	jmp %%test_coef5
+%%OF5:
+	; hay OF, el signo resultante está en DX
+	test dx, dx
+	jns %%test_coef5
+	; colocando el MSB de AX en 1 para indicar que es negativo
+	mov cx, 32768 ; 10000000 00000000
+	or ax, cx
+%%test_coef5:
+	mov dx, [f_x] ; recuperando DX
+	test ax, ax ; para activar la bandera de signo
+	js %%evaluate_negative5
+	; DX += AX
+	add dx, ax
+	jmp %%exit_f_x
+%%evaluate_negative5:
+	add dx, ax
+	jnc %%exit_f_x
+	; hay acarreo
+	mov cx, 32768 ; 10000000 00000000
+	or dx, cx ; colocando el MSB en 1 para indicar que es negativo
+
+%%exit_f_x:
+	mov [f_x], dx
+%endmacro
+
+
+
+; TODO %macro evaluateDerivativeFunction 1
+
+
+;****************************************************************
 ;; ÁREA DE CÓDIGO
+;****************************************************************
 segment code
 
 ;; PROCEDIMIENTO LIMPIEZA DE PANTALLA
@@ -377,6 +617,9 @@ exit_reading:
         mov     ss,ax 
         mov     sp,stacktop
 
+; ***********************************************
+; Menú principal
+; ***********************************************
 MENU:
 
 	print text_menu, len_menu
@@ -390,19 +633,6 @@ MENU:
 	xor si, si ; limpiando el registro para almacenar en él la entrada
 	mov si, buffer_in
 	lodsw ; toma los dos primeros bytes del registro ESI y lo guarda en AL y AH
-
-	;mov [byte_aux2], ah
-	;mov [byte_aux3], al
-
-	;print ln, 2
-	;mov ah, [byte_aux2]
-	;printNumber ah
-	;print ln, 2
-	;mov al, [byte_aux3]
-	;printNumber al
-	;print ln, 2
-	;print ln, 2
-
 
 	; SI LA PARTE ALTA ES DIFERENTE A \n o 13 (ascii), ENTRADA INVÁLIDA
 	cmp ah, 10
@@ -435,7 +665,9 @@ entry_error:
 	print ln, 2
 	jmp MENU
 
-
+; ***********************************************
+; 1) Ingreso de coeficientes
+; ***********************************************
 OPTION_1:
 	call CLEAR_TERMINAL
 
@@ -551,6 +783,9 @@ end_coefs:
 	jmp MENU
 
 
+; ***********************************************
+; 2) Impresión de función original
+; ***********************************************
 OPTION_2:
 	call CLEAR_TERMINAL
 	
@@ -699,7 +934,10 @@ end_print:
 
 	jmp MENU
 
-;; DERIVADA
+
+; ***********************************************
+; 3) Derivada de función original
+; ***********************************************
 OPTION_3:
 	call CLEAR_TERMINAL
 	
@@ -850,7 +1088,9 @@ end_print_deriv:
 	jmp MENU
 
 
-;; INTEGRAL
+; ***********************************************
+; 4) Integral de función original
+; ***********************************************
 OPTION_4:
 	call CLEAR_TERMINAL
 	
@@ -1115,6 +1355,9 @@ print_decimal_const:
 	jmp MENU
 
 
+; ***********************************************
+; 5) Graficar funciones
+; ***********************************************
 OPTION_5:
 	call CLEAR_TERMINAL
 	
@@ -1131,9 +1374,62 @@ OPTION_5:
 
 ok_option5:
 
+	; +++++++++ PRUEBAS DE SUSTITUCIÓN DE VALOR EN FUNCIÓN ORIGINAL ++++++++++
+	mov al, 5
+	mov [byte_aux1], al
+	evaluateOriginalFunction [byte_aux1]
+
+
+	mov ax, [f_x] 
+	test ax, ax ; para activar la bandera de signo
+	js negative1
+	print ln, 2
+	printWordNumber [f_x]
+	print ln, 2
+	jmp next_one
+negative1:
+	print ln, 2
+	print minus, len_minus
+	mov ax, [f_x]
+	neg ax
+	mov [f_prima_x], ax;CAMBIAR
+	printWordNumber [f_prima_x]
+	print ln, 2
+
+	
+next_one:
+	mov al, 5
+	neg al ; -5
+	mov [byte_aux1], al
+	evaluateOriginalFunction [byte_aux1]
+
+
+	mov ax, [f_x] 
+	test ax, ax ; para activar la bandera de signo
+	js negative2
+	print ln, 2
+	printWordNumber [f_x]
+	print ln, 2
+	jmp exit_option5
+negative2:
+	print ln, 2
+	print minus, len_minus
+	mov ax, [f_x] 
+	neg ax
+	mov [f_prima_x], ax;CAMBIAR
+	printWordNumber [f_prima_x]
+
+	
+exit_option5:
+	print ln, 2
+	print ln, 2
+
 	jmp MENU
 
 
+; ***********************************************
+; 6) Método de Newton
+; ***********************************************
 OPTION_6:
 	call CLEAR_TERMINAL
 	
@@ -1153,6 +1449,9 @@ ok_option6:
 	jmp MENU
 
 
+; ***********************************************
+; 7) Método de Steffensen
+; ***********************************************
 OPTION_7:
 	call CLEAR_TERMINAL
 	
@@ -1172,14 +1471,23 @@ ok_option7:
 	jmp MENU
 
 
+; ***********************************************
+; 8) Exit
+; ***********************************************
 EXIT_PROGRAM:
+	call CLEAR_TERMINAL
+
+	print ln, 2
 	print text8, len_text8
+	print ln, 2
 
 	mov ah, 0x4c
 	int 0x21
 
 
-
+;****************************************************************
+; VARIABLES INICIALIZADAS
+;****************************************************************
 
 segment data
 	;; DEFINIENDO TEXTOS DE MENÚS
@@ -1305,12 +1613,18 @@ segment data
 	integ_e6	db	0
 	integ_d6	db	0
 
+	;; AUXILIARES, ALMACENAN f(x), f('x') - Suma de productos -
+	f_x			dw	0
+	f_prima_x	dw	0
+
 	;; LIMPIANDO TERMINAL
 	clear 		db 	27,"[H",27,"[2J"    ; <ESC> [H <ESC> [2J
 	len_clear 	equ	$-clear
 
 
-;; RESERVANDO ESPACIOS
+;****************************************************************
+; VARIABLES NO INICIALIZADAS (PILA)
+;****************************************************************
 
 segment stack stack 
 	; Buffer de lectura
@@ -1322,5 +1636,8 @@ segment stack stack
 	; Bytes para almacenar cocientes y residuos
 	cociente 	resb 1
 	residuo		resb 1
+	; Words auxiliares
+	word_aux1	resw 1
+	word_aux2	resw 2
 
 stacktop:
