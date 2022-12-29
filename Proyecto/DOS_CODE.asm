@@ -695,6 +695,27 @@ int 0x21
 ;****************************************************************
 segment code
 
+;; PROCEDIMIENTO LIMPIEZA DE BUFFER DE ENTRADA
+;CLEAR_BUFFER:
+;	xor al, al
+;	mov [buffer_in], al
+;	mov [buffer_in+1], al
+;	mov [buffer_in+2], al
+;	mov [buffer_in+3], al
+;	mov [buffer_in+4], al
+;	mov [buffer_in+5], al
+;	mov [buffer_in+6], al
+;	mov [buffer_in+7], al
+;	mov [buffer_in+8], al
+;	mov [buffer_in+9], al
+;	mov [buffer_in+10], al
+;	mov [buffer_in+11], al
+;	mov [buffer_in+12], al
+;	mov [buffer_in+13], al
+;	mov [buffer_in+14], al
+;	mov [buffer_in+15], al
+;	ret
+
 ;; PROCEDIMIENTO LIMPIEZA DE PANTALLA
 CLEAR_TERMINAL:
 	mov ah, 0x2     ; Assuming text screen not graphics
@@ -703,7 +724,7 @@ CLEAR_TERMINAL:
 	int 10h
 	mov ah, 0xA
 	mov  cx,25*80
-	mov  al, ' '        ;print this char with above attribute
+	mov  al, ' '
 	int 10h
 	ret ;; Para que vuelva a la ejecución desde el punto en que se llamó
 
@@ -780,8 +801,86 @@ entry_readNum_error:
 exit_reading:
 	ret ;; Para que vuelva a la ejecución desde el punto en que se llamó
 
+; PROCEDIMIENTO GRÁFICA DE PLANO CARTESIANO
+GRAPH_CARTESIAN_MAP:
+	; EJE X -> 320
+	mov cx, 1 ; X (column)
+drawing_x:
+	xor ax, ax
+	xor bx, bx
+	mov dx, 100  ; Y (line)
+	mov ah, 0Ch ; writing mode
+	mov al, 0Fh ; white color
+	mov bh, 00h ; page number
+	int 10h
+	mov [word_aux1], cx
+	mov ax, [word_aux1]
+	mov dx, 0
+	mov bx, 10
+	div bx ; (DX:AX / BX) -> Resultado: AX, Residuo: DX
+	cmp dx, 0
+	jne increase_x
+	mov dx, 98
+	xor ax, ax
+	xor bx, bx
+x_value:
+	; Dibujando valor en X
+	mov ah, 0Ch ; writing mode
+	mov al, 0Fh ; white color
+	mov bh, 00h ; page number
+	int 10h
+	inc dx
+	cmp dx, 102 ; 4 px de longitud
+	jne x_value
+increase_x:
+	inc cx
+	cmp cx, 320
+	jne drawing_x
 
+	; EJE Y -> 200
+	mov cx, 160 ; X (column)
+	mov dx, 1  ; Y (line)
+drawing_y:
+	xor ax, ax
+	xor bx, bx
+	mov cx, 160 ; X (column)
+	mov ah, 0Ch ; writing mode
+	mov al, 0Fh ; white color
+	mov bh, 00h ; page number
+	int 10h
+	mov [word_aux1], dx
+	mov ax, [word_aux1]
+	mov dx, 0
+	mov bx, 10
+	div bx ; (DX:AX / BX) -> Resultado: AX, Residuo: DX
+	cmp dx, 0
+	jne increase_y
+	mov dx, [word_aux1]
+	mov cx, 158
+	xor ax, ax
+	xor bx, bx
+y_value:
+	; Dibujando valor en Y
+	mov ah, 0Ch ; writing mode
+	mov al, 0Fh ; white color
+	mov bh, 00h ; page number
+	int 10h
+	inc cx
+	cmp cx, 162 ; 4 px de longitud
+	jne y_value
+increase_y:
+	mov dx, [word_aux1]
+	inc dx
+	cmp dx, 200
+	jne drawing_y
+
+	ret
+
+
+
+;; *********************************
 ;; INICIO DE EJECUCIÓN DE PROGRAMA
+;; *********************************
 
 ..start:
 
@@ -795,7 +894,6 @@ exit_reading:
 ; Menú principal
 ; ***********************************************
 MENU:
-
 	print text_menu, len_menu
 
 	; leyendo entrada del teclado
@@ -834,6 +932,8 @@ CASES:
 	je EXIT_PROGRAM
 
 entry_error:
+	xor si, si
+	mov [buffer_in], si
 	; ENTRADA INVÁLIDA
 	print error1, len_error1
 	print ln, 2
@@ -1548,6 +1648,50 @@ OPTION_5:
 
 ok_option5:
 
+	mov ah, 00h ; video mode
+	mov al, 0xD ; 320x200 16 color graphics (EGA,VGA)
+	int 10h
+
+	mov ah, 0Bh ; set background color
+	mov bh, 00h
+	mov bl, 00h ; black color
+	int 10h
+
+	call GRAPH_CARTESIAN_MAP
+
+	; Wait for key press
+	mov ah, 08h
+	int 21h
+
+	call CLEAR_TERMINAL
+
+	; Regresando a la resolución original
+	mov ah, 00h ; video mode
+	mov al, 03h ; 80x25 16-color text mode
+	int 10h
+
+	jmp MENU
+
+
+; ***********************************************
+; 6) Método de Newton
+; ***********************************************
+OPTION_6:
+	call CLEAR_TERMINAL
+	
+	print text6, len_text6
+	print ln, 2
+
+	; Validando que exista función almacenada
+	mov al, [degree]
+	cmp al, 10
+	jne ok_option6
+	print warning1, len_warning1
+	print ln, 2
+	jmp MENU
+
+ok_option6:
+
 	; +++++++++ PRUEBAS DE SUSTITUCIÓN DE VALOR EN DERIVADA ++++++++++
 	mov al, 5
 	mov [byte_aux1], al
@@ -1597,28 +1741,6 @@ negative2:
 exit_option5:
 	print ln, 2
 	print ln, 2
-
-	jmp MENU
-
-
-; ***********************************************
-; 6) Método de Newton
-; ***********************************************
-OPTION_6:
-	call CLEAR_TERMINAL
-	
-	print text6, len_text6
-	print ln, 2
-
-	; Validando que exista función almacenada
-	mov al, [degree]
-	cmp al, 10
-	jne ok_option6
-	print warning1, len_warning1
-	print ln, 2
-	jmp MENU
-
-ok_option6:
 
 	jmp MENU
 
