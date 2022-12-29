@@ -511,9 +511,183 @@ int 0x21
 	mov [f_x], dx
 %endmacro
 
+;; MACRO f'(x)
+; %1 -> x a evaluar en la derivada de la función original
+; El resultado se almacena en la variabe f_prima_x
+%macro evaluateDerivativeFunction 1
+	xor ax, ax
+	xor dx, dx ; dx tendrá el resultado de la función
+	mov al, [deriv_c0]
+	cbw ; extendiendo el signo a AX
+	mov dx, ax
+	
+	; AX = deriv_c1 * %1
+	xor ax, ax
+	mov bl, [deriv_c1]
+	mov al, %1
+	imul bl ; (AL * BL = AH:AL)
+	test ax, ax ; para activar la bandera de signo
+	js %%evaluate_negatived1
+	; DX += AX
+	add dx, ax
+	jmp %%evaluate_deriv2
+%%evaluate_negatived1:
+	add dx, ax
+	jnc %%evaluate_deriv2
+	; hay acarreo
+	mov cx, 32768 ; 10000000 00000000
+	or dx, cx ; colocando el MSB en 1 para indicar que es negativo
 
+	; AX = deriv_c2 * (%1 ^ 2)
+%%evaluate_deriv2:
+	mov al, %1
+	mov bl, %1
+	imul bl ; AX = (%1 ^ 2)
+	mov bx, ax
+	xor ax, ax
+	mov al, [deriv_c2]
+	cbw ; extendiendo el signo del coeficiente a AX
+	mov [f_prima_x], dx ; para no perder el valor de DX
+	imul bx ; (AX * BX = DX:AX)
+	jo %%OF_DERIV2
+	; no hay OF, el signo resultante está en AX
+	jmp %%test_deriv2
+%%OF_DERIV2:
+	; hay OF, el signo resultante está en DX
+	test dx, dx
+	jns %%test_deriv2
+	; colocando el MSB de AX en 1 para indicar que es negativo
+	mov cx, 32768 ; 10000000 00000000
+	or ax, cx
+%%test_deriv2:
+	mov dx, [f_prima_x] ; recuperando DX
+	test ax, ax ; para activar la bandera de signo
+	js %%evaluate_negatived2
+	; DX += AX
+	add dx, ax
+	jmp %%evaluate_deriv3
+%%evaluate_negatived2:
+	add dx, ax
+	jnc %%evaluate_deriv3
+	; hay acarreo
+	mov cx, 32768 ; 10000000 00000000
+	or dx, cx ; colocando el MSB en 1 para indicar que es negativo
 
-; TODO %macro evaluateDerivativeFunction 1
+	; AX = deriv_c3 * (%1 ^ 3)
+%%evaluate_deriv3:
+	mov [f_prima_x], dx ; para no perder el valor de DX
+	xor ax, ax
+	xor bx, bx
+	xor cx, cx
+	mov cx, 2 ;para el loop
+	mov al, %1
+	cbw ; extendiendo el signo a AX
+	mov bx, ax ; copiandolo en bx
+	; LOOP: AX = (%1 ^ 3)
+%%loop_d3:
+	imul bx ; (AX * BX = DX:AX)
+	jo %%OF_AX_d3
+	; no hay OF, el signo resultante está en AX
+	jmp %%end_loop_d3
+%%OF_AX_d3:
+	; hay OF, el signo resultante está en DX
+	test dx, dx
+	jns %%end_loop_d3
+	; colocando el MSB de AX en 1 para indicar que es negativo
+	mov dx, 32768 ; 10000000 00000000
+	or ax, dx
+%%end_loop_d3:
+	loop %%loop_d3
+	; AX = (%1 ^ 3)
+	mov bx, ax
+	xor ax, ax
+	xor dx, dx
+	mov al, [deriv_c3]
+	cbw ; extendiendo el signo del deriviciente a AX
+	imul bx ; (AX * BX = DX:AX)
+	jo %%OF_DERIV3
+	; no hay OF, el signo resultante está en AX
+	jmp %%test_deriv3
+%%OF_DERIV3:
+	; hay OF, el signo resultante está en DX
+	test dx, dx
+	jns %%test_deriv3
+	; colocando el MSB de AX en 1 para indicar que es negativo
+	mov cx, 32768 ; 10000000 00000000
+	or ax, cx
+%%test_deriv3:
+	mov dx, [f_prima_x] ; recuperando DX
+	test ax, ax ; para activar la bandera de signo
+	js %%evaluate_negatived3
+	; DX += AX
+	add dx, ax
+	jmp %%evaluate_deriv4
+%%evaluate_negatived3:
+	add dx, ax
+	jnc %%evaluate_deriv4
+	; hay acarreo
+	mov cx, 32768 ; 10000000 00000000
+	or dx, cx ; colocando el MSB en 1 para indicar que es negativo
+
+	; AX = deriv_c4 * (%1 ^ 4)
+%%evaluate_deriv4:
+	mov [f_prima_x], dx ; para no perder el valor de DX
+	xor ax, ax
+	xor bx, bx
+	xor cx, cx
+	mov cx, 3 ;para el loop
+	mov al, %1
+	cbw ; extendiendo el signo a AX
+	mov bx, ax ; copiandolo en bx
+	; LOOP: AX = (%1 ^ 4)
+%%loop_d4:
+	imul bx ; (AX * BX = DX:AX)
+	jo %%OF_AX_d4
+	; no hay OF, el signo resultante está en AX
+	jmp %%end_loop_d4
+%%OF_AX_d4:
+	; hay OF, el signo resultante está en DX
+	test dx, dx
+	jns %%end_loop_d4
+	; colocando el MSB de AX en 1 para indicar que es negativo
+	mov dx, 32768 ; 10000000 00000000
+	or ax, dx
+%%end_loop_d4:
+	loop %%loop_d4
+	; AX = (%1 ^ 4)
+	mov bx, ax
+	xor ax, ax
+	xor dx, dx
+	mov al, [deriv_c4]
+	cbw ; extendiendo el signo del deriviciente a AX
+	imul bx ; (AX * BX = DX:AX)
+	jo %%OF_DERIV4
+	; no hay OF, el signo resultante está en AX
+	jmp %%test_deriv4
+%%OF_DERIV4:
+	; hay OF, el signo resultante está en DX
+	test dx, dx
+	jns %%test_deriv4
+	; colocando el MSB de AX en 1 para indicar que es negativo
+	mov cx, 32768 ; 10000000 00000000
+	or ax, cx
+%%test_deriv4:
+	mov dx, [f_prima_x] ; recuperando DX
+	test ax, ax ; para activar la bandera de signo
+	js %%evaluate_negatived4
+	; DX += AX
+	add dx, ax
+	jmp %%exit_f_prima_x
+%%evaluate_negatived4:
+	add dx, ax
+	jnc %%exit_f_prima_x
+	; hay acarreo
+	mov cx, 32768 ; 10000000 00000000
+	or dx, cx ; colocando el MSB en 1 para indicar que es negativo
+
+%%exit_f_prima_x:
+	mov [f_prima_x], dx
+%endmacro
 
 
 ;****************************************************************
@@ -1374,26 +1548,26 @@ OPTION_5:
 
 ok_option5:
 
-	; +++++++++ PRUEBAS DE SUSTITUCIÓN DE VALOR EN FUNCIÓN ORIGINAL ++++++++++
+	; +++++++++ PRUEBAS DE SUSTITUCIÓN DE VALOR EN DERIVADA ++++++++++
 	mov al, 5
 	mov [byte_aux1], al
-	evaluateOriginalFunction [byte_aux1]
+	evaluateDerivativeFunction [byte_aux1]
 
 
-	mov ax, [f_x] 
+	mov ax, [f_prima_x] 
 	test ax, ax ; para activar la bandera de signo
 	js negative1
 	print ln, 2
-	printWordNumber [f_x]
+	printWordNumber [f_prima_x]
 	print ln, 2
 	jmp next_one
 negative1:
 	print ln, 2
 	print minus, len_minus
-	mov ax, [f_x]
+	mov ax, [f_prima_x]
 	neg ax
-	mov [f_prima_x], ax;CAMBIAR
-	printWordNumber [f_prima_x]
+	mov [word_aux1], ax
+	printWordNumber [word_aux1]
 	print ln, 2
 
 	
@@ -1401,23 +1575,23 @@ next_one:
 	mov al, 5
 	neg al ; -5
 	mov [byte_aux1], al
-	evaluateOriginalFunction [byte_aux1]
+	evaluateDerivativeFunction [byte_aux1]
 
 
-	mov ax, [f_x] 
+	mov ax, [f_prima_x] 
 	test ax, ax ; para activar la bandera de signo
 	js negative2
 	print ln, 2
-	printWordNumber [f_x]
+	printWordNumber [f_prima_x]
 	print ln, 2
 	jmp exit_option5
 negative2:
 	print ln, 2
 	print minus, len_minus
-	mov ax, [f_x] 
+	mov ax, [f_prima_x] 
 	neg ax
-	mov [f_prima_x], ax;CAMBIAR
-	printWordNumber [f_prima_x]
+	mov [word_aux1], ax
+	printWordNumber [word_aux1]
 
 	
 exit_option5:
