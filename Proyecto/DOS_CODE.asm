@@ -689,6 +689,73 @@ int 0x21
 	mov [f_prima_x], dx
 %endmacro
 
+; ***********************************************************
+; Representación IEE de punto flotante
+; Precisión sencilla (32 BITS):
+; * bit de signo
+; * exponente de 8 bits (-127 hasta 127 -REAL-) (infinitos: +- 128)
+; * significando o matinsa de 23 bits
+; [S][EEEEEEE E][MMMMMMM MMMMMMMM MMMMMMMM]
+;
+; FÓRMULAS
+; * exponente real = exponente - 127 (01111111)
+; * matinsa -> parte fraccionaria
+;
+; EJEMPLOS:
+; * 0.75 ->	00111111 01000000 00000000 00000000
+;		SIGNO: 0 -> POSITIVO
+;		EXPONENTE: 126 - 127 = -1
+;		MATINSA: 1/2
+;		0.75 = 1.5 * 2^-1
+;
+; * 2 ->	01000000 00000000 00000000 00000000
+;		SIGNO: 0 -> POSITIVO
+;		EXPONENTE: 128 - 127 = 1
+;		MATINSA: 0
+;		2 = 1 * 2^1
+;
+; * 0.1 ->	00111101 11001100 11001100 11001101
+;		SIGNO: 0 -> POSITIVO
+;		EXPONENTE: 123 - 127 = -4
+;		MATINSA: 1/2 + 1/16 + 1/32 + ... = .6
+;		0.1 = 1.6 * 2^-4
+; ***********************************************************
+%macro castFloatToInt 1 ; %1 -> [dword]
+	mov eax,%1				; EAX = [S][EEEEEEE E][MMMMMMM MMMMMMMM MMMMMMMM]
+	rcl  eax,1 				; Rotación a la izquierda para enviar el signo al carry (carry -> LSB | MSB -> carry)
+							; EAX = [EEEEEEEE][MMMMMMMM MMMMMMMM MMMMMMMX] | C = S
+	jnc %%positive_integer
+	print minus, len_minus
+    mov eax,%1
+	rcl  eax,1
+%%positive_integer:
+	mov  ebx,eax 			; Guardándolo en ebx
+	mov  edx,4278190080 	; EDX = 11111111 00000000 00000000 00000000
+	and  eax,edx 			; Obteniendo el exponente en la parte alta de EAX
+	shr  eax,24 			; EAX = 00000000 00000000 00000000 EEEEEEEE
+	sub  eax,127			; Restando 127 para obtener el exponente real
+	mov  edx,eax			; EDX = EXPONENTE REAL EN BINARIO
+	mov  eax,ebx 			; EAX = [EEEEEEEE][MMMMMMMM MMMMMMMM MMMMMMMX] | C = X
+	rcl  eax,8 				; EAX = [MMMMMMMM][MMMMMMMM MMMMMMMX XEEEEEEE] | C = E
+	mov  ebx,eax 			; EBX = [MMMMMMMM][MMMMMMMM MMMMMMMX XEEEEEEE] | C = E
+	mov  ecx, 31 			; ECX = 00000000 00000000 00000000 00011111
+	sub  ecx,edx 			; ECX = ECX - EDX
+	mov  edx,0h 			; EDX = 0
+	cmp  ecx,0
+	je   %%end_cast 		; Si ECX == EDX, FIN
+	shr  eax,1 				; EAX = [0MMMMMMM][MMMMMMMM MMMMMMMM XXEEEEEE]
+	or   eax,2147483648		; 10000000 00000000 00000000 00000000
+							; EAX = [1MMMMMMM][MMMMMMMM MMMMMMMM XXEEEEEE]
+%%loop_cast:
+	shr  eax,1 				; Desplazando EAX 1 bit a la derecha
+	sub  ecx,1 				; ECX -= 1
+	cmp  ecx,0
+	ja   %%loop_cast 			; Si ECX > 0, repetir ciclo
+%%end_cast:  
+	mov  %1, eax
+%endmacro
+
+
 
 ;****************************************************************
 ;; ÁREA DE CÓDIGO
@@ -913,6 +980,8 @@ MENU:
 	jne entry_error
 
 CASES:
+	xor si, si
+	mov [buffer_in], si
 	; SALTANDO A LA OPCIÓN QUE SE HAYA ESCOGIDO
 	cmp al, '1'
 	je OPTION_1
@@ -1659,6 +1728,18 @@ ok_option5:
 
 	call GRAPH_CARTESIAN_MAP
 
+	; TODO GRAFICAR PUNTOS
+
+
+
+	mov cx, 1 ; X (column)
+	mov dx, 100  ; Y (line)
+	mov ah, 0Ch ; writing mode
+	mov al, 0Fh ; white color
+	mov bh, 00h ; page number
+	int 10h
+
+
 	; Wait for key press
 	mov ah, 08h
 	int 21h
@@ -1693,6 +1774,28 @@ OPTION_6:
 ok_option6:
 
 	; +++++++++ PRUEBAS DE SUSTITUCIÓN DE VALOR EN DERIVADA ++++++++++
+	mov eax, __float32__(-801.252476)
+	mov ebx, __float32__(28.76)
+	mov [dword_aux1], eax
+	mov [dword_aux2], ebx
+
+	finit ;reset fpu stacks to default
+    fld    dword [dword_aux1]   ;push single_value1 to fpu stack
+    fld    dword [dword_aux2]   ;push double_value2 to fpu stack
+    fadd
+    fst		dword [dword_aux1]      ;store the summation result into memmov
+
+    print ln, 2
+
+    castFloatToInt [dword_aux1]
+    
+    printWordNumber [dword_aux1]
+    print ln, 2
+
+
+
+
+
 	mov al, 5
 	mov [byte_aux1], al
 	evaluateDerivativeFunction [byte_aux1]
@@ -1728,7 +1831,7 @@ next_one:
 	print ln, 2
 	printWordNumber [f_prima_x]
 	print ln, 2
-	jmp exit_option5
+	jmp exit_option6
 negative2:
 	print ln, 2
 	print minus, len_minus
@@ -1738,7 +1841,7 @@ negative2:
 	printWordNumber [word_aux1]
 
 	
-exit_option5:
+exit_option6:
 	print ln, 2
 	print ln, 2
 
@@ -1881,12 +1984,12 @@ segment data
 
 	;; DEFINIENDO COEFICIENTES DE FUNCIÓN ORIGINAL (-128 (-2⁷) hasta 128 (2⁷))
 	degree		db	10 ; valor para indicar que no hay función
-	coef_0		db	0
-	coef_1		db	0
-	coef_2		db	0
-	coef_3		db	0
-	coef_4		db	0
-	coef_5		db	0
+	coef_0		db	0.0
+	coef_1		db	0.0
+	coef_2		db	0.0
+	coef_3		db	0.0
+	coef_4		db	0.0
+	coef_5		db	0.0
 
 	;; DEFINIENDO COEFICIENTES DE DERIVADA (-128 (-2⁷) hasta 128 (2⁷))
 	deriv_c0	db	0
@@ -1910,8 +2013,14 @@ segment data
 	integ_d6	db	0
 
 	;; AUXILIARES, ALMACENAN f(x), f('x') - Suma de productos -
-	f_x			dw	0
-	f_prima_x	dw	0
+	f_x			dw	0.0
+	f_prima_x	dw	0.0
+	; Words auxiliares
+	word_aux1	dw 0.0
+	word_aux2	dw 0.0
+	; dwords auxiliares
+	dword_aux1	dd 0.0
+	dword_aux2	dd 0.0
 
 	;; LIMPIANDO TERMINAL
 	clear 		db 	27,"[H",27,"[2J"    ; <ESC> [H <ESC> [2J
@@ -1932,8 +2041,5 @@ segment stack stack
 	; Bytes para almacenar cocientes y residuos
 	cociente 	resb 1
 	residuo		resb 1
-	; Words auxiliares
-	word_aux1	resw 1
-	word_aux2	resw 2
 
 stacktop:
