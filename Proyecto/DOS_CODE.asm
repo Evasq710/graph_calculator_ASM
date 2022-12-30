@@ -161,6 +161,85 @@ print byte_aux1, 1
 
 %endmacro
 
+;; MACRO IMPRIMIR NUM DE 3 DIGITOS GUARDADO EN 4 BYTES
+%macro printDwordThreeDigits 1
+mov ebx, 100	; EBX: Fuente de 32 bits
+mov eax, %1	; EAX: Resultado
+mov edx, 0	; EDX: Residuo
+
+div ebx ;Dividiendo EAX / EBX
+mov [byte_aux2], dl
+
+add eax, 48 ; ascii
+mov [byte_aux1], al
+print byte_aux1, 1
+
+printTwoDigits [byte_aux2]
+%endmacro
+
+;; MACRO IMPRIMIR NUM DE 4 DIGITOS GUARDADO EN 4 BYTES
+%macro printDwordFourDigits 1
+mov ebx, 1000; EBX: Fuente de 32 bits
+mov eax, %1	; EAX: Resultado
+mov edx, 0	; EDX: Residuo
+
+div ebx 			;Dividiendo EAX / EBX
+mov [dword_aux1], edx
+
+add eax, 48 ; ascii
+mov [byte_aux1], al
+print byte_aux1, 1
+
+printDwordThreeDigits [dword_aux1]
+%endmacro
+
+;; MACRO IMPRIMIR NÚMERO GUARDADO EN 4 BYTES
+%macro printDwordNumber 1
+mov ecx, %1
+
+mov ebx, 1000	; EBX: Fuente de 32 bits
+mov eax, ecx	; EAX: Resultado
+mov edx, 0		; EDX: Residuo
+
+div ebx 		;Dividiendo EAX / EBX
+cmp eax, 0
+jne %%four	;Si el resultado no es cero, 4 digitos
+
+mov ebx, 100	; BX: Fuente de 16 bits
+mov eax, ecx	; AX: Resultado
+mov edx, 0	; DX: Residuo
+
+div ebx 		;Dividiendo AX / BX
+cmp eax, 0
+jne %%three	;Si el resultado no es cero, 3 digitos
+
+mov ebx, 10
+mov eax, ecx	; AX: Resultado
+mov edx, 0	; DX: Residuo
+
+div ebx	;Dividiendo AX / BX
+cmp eax, 0
+jne %%two	;Si el resultado no es cero, 2 digitos
+
+jmp %%one	;Un digito
+
+%%four:
+printDwordFourDigits ecx
+jmp %%exit_macro
+%%three:
+printDwordThreeDigits ecx
+jmp %%exit_macro
+%%two:
+printTwoDigits cl
+jmp %%exit_macro
+%%one:
+add ecx, 48	; ascii
+mov [byte_aux1], cl
+print byte_aux1, 1
+%%exit_macro:
+
+%endmacro
+
 ;; MACRO IMPRIMIR NÚMERO DECIMAL PARA RESULTADO DE INTEGRALES
 ; %1 -> parte entera
 ; %2 -> residuo
@@ -689,6 +768,108 @@ int 0x21
 	mov [f_prima_x], dx
 %endmacro
 
+;; MACRO f(x)
+; %1 -> x flotante a evaluar en la función original
+; El resultado se almacena en la variabe dword_aux3
+%macro evaluateFloatInOriginalFunction 1
+	xor eax, eax
+	mov [dword_aux3], eax ; limpiando var que guardará la respuesta
+    mov ebx, %1 ; guardando valor a evaluar en EBX
+
+	finit ; inicilizando stack de FPU
+
+	; Operando con coef_5
+	mov [dword_aux2], ebx
+    fld dword [dword_aux2]   ;push %1
+    fld dword [dword_aux2]   ;push %1
+    fmul ; st0 = %1^2
+    fld dword [dword_aux2]   ;push %1
+    fmul ; st0 = %1^3
+    fld dword [dword_aux2]   ;push %1
+    fmul ; st0 = %1^4
+    fld dword [dword_aux2]   ;push %1
+    fmul ; st0 = %1^5
+	mov al, [coef_5]
+	cbw ; extendiendo el signo a AX
+	cwde ; extendiendo el signo a EAX
+	mov [dword_aux2], eax
+    fild dword [dword_aux2]   ;push coef_5
+    fmul ; st0 = coef_5 * %1^5
+
+	; Operando con coef_4
+	mov [dword_aux2], ebx
+    fld dword [dword_aux2]   ;push %1
+    fld dword [dword_aux2]   ;push %1
+    fmul ; st0 = %1^2
+    fld dword [dword_aux2]   ;push %1
+    fmul ; st0 = %1^3
+    fld dword [dword_aux2]   ;push %1
+    fmul ; st0 = %1^4
+	xor eax, eax
+	mov al, [coef_4]
+	cbw ; extendiendo el signo a AX
+	cwde ; extendiendo el signo a EAX
+	mov [dword_aux2], eax
+    fild dword [dword_aux2]   ;push coef_4
+    fmul ; st0 = coef_4 * %1^4, st1 = COEF5
+
+	; Operando con coef_3
+	mov [dword_aux2], ebx
+    fld dword [dword_aux2]   ;push %1
+    fld dword [dword_aux2]   ;push %1
+    fmul ; st0 = %1^2
+    fld dword [dword_aux2]   ;push %1
+    fmul ; st0 = %1^3
+	xor eax, eax
+	mov al, [coef_3]
+	cbw ; extendiendo el signo a AX
+	cwde ; extendiendo el signo a EAX
+	mov [dword_aux2], eax
+    fild dword [dword_aux2]   ;push coef_3
+    fmul ; st0 = coef_3 * %1^3, st1 = COEF4, st2 = COEF5
+
+	; Operando con coef_2
+	mov [dword_aux2], ebx
+    fld dword [dword_aux2]   ;push %1
+    fld dword [dword_aux2]   ;push %1
+    fmul ; st0 = %1^2
+	xor eax, eax
+	mov al, [coef_2]
+	cbw ; extendiendo el signo a AX
+	cwde ; extendiendo el signo a EAX
+	mov [dword_aux2], eax
+    fild dword [dword_aux2]   ;push coef_2
+    fmul ; st0 = coef_2 * %1^2, st1 = COEF3, st2 = COEF4, st3 = COEF5
+
+	; Operando con coef_1
+	xor eax, eax
+	mov al, [coef_1]
+	cbw ; extendiendo el signo a AX
+	cwde ; extendiendo el signo a EAX
+	mov [dword_aux2], eax
+    fild dword [dword_aux2]   ;push coef_1
+	mov [dword_aux2], ebx
+    fld dword [dword_aux2]   ;push %1
+    fmul ; st0 = coef_1 * %1, st1 = COEF2, st2 = COEF3, st3 = COEF4, st4 = COEF5
+
+    fadd ; st0 = coef_1 * %1 + COEF2
+    fadd ; st0 = st0 + COEF3
+    fadd ; st0 = st0 + COEF4
+    fadd ; st0 = st0 + COEF5
+
+    ; Sumando el coef_0
+	xor eax, eax
+	mov al, [coef_0]
+	cbw ; extendiendo el signo a AX
+	cwde ; extendiendo el signo a EAX
+	mov [dword_aux2], eax
+    fild dword [dword_aux2]   ;push coef_0 to fpu stack (st0)
+    fadd ; st0 = st0 + st1
+
+    fstp   dword [dword_aux3] ; guardando el resultado en dword_aux1
+
+%endmacro
+
 ; ***********************************************************
 ; Representación IEE de punto flotante
 ; Precisión sencilla (32 BITS):
@@ -720,15 +901,16 @@ int 0x21
 ;		MATINSA: 1/2 + 1/16 + 1/32 + ... = .6
 ;		0.1 = 1.6 * 2^-4
 ; ***********************************************************
-%macro castFloatToInt 1 ; %1 -> [dword]
+%macro castFloatToInt 1 ; %1 -> [dword], [byte_aux1] signo: 0 | 1
+	mov bl, 0 ;signo
 	mov eax,%1				; EAX = [S][EEEEEEE E][MMMMMMM MMMMMMMM MMMMMMMM]
 	rcl  eax,1 				; Rotación a la izquierda para enviar el signo al carry (carry -> LSB | MSB -> carry)
 							; EAX = [EEEEEEEE][MMMMMMMM MMMMMMMM MMMMMMMX] | C = S
+	
 	jnc %%positive_integer
-	print minus, len_minus
-    mov eax,%1
-	rcl  eax,1
+	mov bl, 1
 %%positive_integer:
+	mov [byte_aux1], bl ; guardando el signo
 	mov  ebx,eax 			; Guardándolo en ebx
 	mov  edx,4278190080 	; EDX = 11111111 00000000 00000000 00000000
 	and  eax,edx 			; Obteniendo el exponente en la parte alta de EAX
@@ -1773,7 +1955,8 @@ OPTION_6:
 
 ok_option6:
 
-	; +++++++++ PRUEBAS DE SUSTITUCIÓN DE VALOR EN DERIVADA ++++++++++
+	; +++++++++ PRUEBAS DE CASTEO DE FLOTANTES ++++++++++
+
 	mov eax, __float32__(-801.252476)
 	mov ebx, __float32__(28.76)
 	mov [dword_aux1], eax
@@ -1783,18 +1966,41 @@ ok_option6:
     fld    dword [dword_aux1]   ;push single_value1 to fpu stack
     fld    dword [dword_aux2]   ;push double_value2 to fpu stack
     fadd
-    fst		dword [dword_aux1]      ;store the summation result into memmov
+    fstp	dword [dword_aux1]	;store the summation result into memmov
 
     print ln, 2
 
-    castFloatToInt [dword_aux1]
+    castFloatToInt [dword_aux1] ; parámetro el valor a convertir, y se guarda en la misma variable, en byte_aux1 está el signo
     
-    printWordNumber [dword_aux1]
+	mov bl, [byte_aux1]
+	cmp bl, 0
+	je positivedword1
+	print minus, len_minus
+positivedword1:
+    printDwordNumber [dword_aux1]
     print ln, 2
 
 
+	; +++++++++ PRUEBAS SUSTITUCIÓN DE FLOTANTES EN F. ORIGINAL ++++++++++
+	mov ebx, __float32__(-5.23)
+	mov [dword_aux1], ebx
+    evaluateFloatInOriginalFunction [dword_aux1] ; el parametro es el valor a evaluar, se guarda en dword_aux3
+
+	print ln, 2
+
+    castFloatToInt [dword_aux3] ; parámetro el valor a convertir, y se guarda en la misma variable, en byte_aux1 está el signo
+
+	mov bl, [byte_aux1]
+	cmp bl, 0
+	je positivedword
+	print minus, len_minus
+positivedword:
+	printDwordNumber [dword_aux3]
+	print ln, 2
 
 
+
+	; +++++++++ PRUEBAS DE SUSTITUCIÓN DE VALOR EN DERIVADA ++++++++++
 
 	mov al, 5
 	mov [byte_aux1], al
@@ -1984,12 +2190,12 @@ segment data
 
 	;; DEFINIENDO COEFICIENTES DE FUNCIÓN ORIGINAL (-128 (-2⁷) hasta 128 (2⁷))
 	degree		db	10 ; valor para indicar que no hay función
-	coef_0		db	0.0
-	coef_1		db	0.0
-	coef_2		db	0.0
-	coef_3		db	0.0
-	coef_4		db	0.0
-	coef_5		db	0.0
+	coef_0		db	0
+	coef_1		db	0
+	coef_2		db	0
+	coef_3		db	0
+	coef_4		db	0
+	coef_5		db	0
 
 	;; DEFINIENDO COEFICIENTES DE DERIVADA (-128 (-2⁷) hasta 128 (2⁷))
 	deriv_c0	db	0
@@ -2021,6 +2227,10 @@ segment data
 	; dwords auxiliares
 	dword_aux1	dd 0.0
 	dword_aux2	dd 0.0
+	dword_aux3	dd 0.0
+	dword_aux4	dd 0.0
+	dword_aux5	dd 0.0
+	dword_aux6	dd 0.0
 
 	;; LIMPIANDO TERMINAL
 	clear 		db 	27,"[H",27,"[2J"    ; <ESC> [H <ESC> [2J
