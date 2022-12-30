@@ -1059,7 +1059,7 @@ drawing_x:
 	xor bx, bx
 	mov dx, 100  ; Y (line)
 	mov ah, 0Ch ; writing mode
-	mov al, 0Fh ; white color
+	mov al, 03h ; green color
 	mov bh, 00h ; page number
 	int 10h
 	mov [word_aux1], cx
@@ -1075,7 +1075,7 @@ drawing_x:
 x_value:
 	; Dibujando valor en X
 	mov ah, 0Ch ; writing mode
-	mov al, 0Fh ; white color
+	mov al, 03h ; green color
 	mov bh, 00h ; page number
 	int 10h
 	inc dx
@@ -1094,7 +1094,7 @@ drawing_y:
 	xor bx, bx
 	mov cx, 160 ; X (column)
 	mov ah, 0Ch ; writing mode
-	mov al, 0Fh ; white color
+	mov al, 03h ; green color
 	mov bh, 00h ; page number
 	int 10h
 	mov [word_aux1], dx
@@ -1111,7 +1111,7 @@ drawing_y:
 y_value:
 	; Dibujando valor en Y
 	mov ah, 0Ch ; writing mode
-	mov al, 0Fh ; white color
+	mov al, 03h ; green color
 	mov bh, 00h ; page number
 	int 10h
 	inc cx
@@ -1898,6 +1898,46 @@ OPTION_5:
 	jmp MENU
 
 ok_option5:
+	; Solicitando la opción a graficar
+	print text5_0, len_text5_0
+
+	; leyendo entrada del teclado
+	read buffer_in, 16
+
+	print ln, 2
+
+	cld
+	xor si, si ; limpiando el registro para almacenar en él la entrada
+	mov si, buffer_in
+	lodsw ; toma los dos primeros bytes del registro ESI y lo guarda en AL y AH
+
+	; SI LA PARTE ALTA ES DIFERENTE A \n o 13 (ascii), ENTRADA INVÁLIDA
+	cmp ah, 10
+	je graph_cases
+	cmp ah, 13
+	jne graph_entry_error
+
+graph_cases:
+	xor si, si
+	mov [buffer_in], si
+	; SALTANDO A LA OPCIÓN QUE SE HAYA ESCOGIDO
+	cmp al, '1'
+	je graph_type
+	cmp al, '2'
+	je graph_type
+	cmp al, '3'
+	je graph_type
+
+graph_entry_error:
+	xor si, si
+	mov [buffer_in], si
+	; ENTRADA INVÁLIDA
+	print error1, len_error1
+	print ln, 2
+	jmp MENU
+
+graph_type:
+	mov [byte_aux3], al ; '1' | '2' | '3'
 
 	mov ah, 00h ; video mode
 	mov al, 0xD ; 320x200 16 color graphics (EGA,VGA)
@@ -1908,18 +1948,90 @@ ok_option5:
 	mov bl, 00h ; black color
 	int 10h
 
+	; EJE X: -16 <=> 16
+	; EJE Y: -10 <=> 10
 	call GRAPH_CARTESIAN_MAP
 
-	; TODO GRAFICAR PUNTOS
+	mov ecx, 1		; (Pixel en X)
 
+drawing_points:
+	mov eax, 10		; Para manejar la escala
+	mov ebx, 16		; Para manejar la escala
 
+	finit ; inicializando stack de flotantes
+	mov [dword_aux4], ecx
+	fild dword [dword_aux4] ; push pixel actual
+	mov [dword_aux4], eax
+	fild dword [dword_aux4] ; push escala 1:10
+	fdiv ; st0 = Pixel / 10
+	mov [dword_aux4], ebx
+	fild dword [dword_aux4] ; push ajuste de +/- X
+	fsub ; st0 = X - 16
+	fstp dword [dword_aux5] ; Guardando la X en dword_aux5
 
-	mov cx, 1 ; X (column)
-	mov dx, 100  ; Y (line)
+	mov al, [byte_aux3]
+	cmp al, '1'
+	je get_original_point
+	cmp al, '2'
+	je get_derivative_point
+	cmp al, '3'
+	je get_integral_point
+
+get_original_point:
+	; Evaluando X en la función original
+	; el punto en Y se guarda en dword_aux3
+    evaluateFloatInOriginalFunction [dword_aux5]
+    jmp exit_get_point
+get_derivative_point:
+    jmp exit_get_point
+get_integral_point:
+exit_get_point:
+
+	finit ; inicializando stack de flotantes
+	fld dword [dword_aux3] ; push Y
+
+	xor eax, eax
+	mov eax, -1		; Para ajustar Y
+	mov [dword_aux4], eax
+	fild dword [dword_aux4] ; push ajuste +/- Y
+	fmul
+
+	mov eax, 10		; Para manejar la escala
+	mov [dword_aux4], eax
+	fild dword [dword_aux4] ; push ajuste +/- Y
+	fadd ; st0 = Y + 10
+
+	fild dword [dword_aux4] ; push escala 1:10
+	fmul ; st0 = Y * 10
+	fstp dword [dword_aux6] ; (Pixel en Y)
+
+	mov [dword_aux5], ecx ; guardando pixel en X
+
+    castFloatToInt [dword_aux6] ; parámetro el valor a convertir, y se guarda en la misma variable, en byte_aux1 está el signo
+
+    mov ecx, [dword_aux5] ; Recuperando pixel en X
+    mov edx, [dword_aux6] ; Guardando pixel en Y
+
+    mov ebx, 200
+    cmp edx, ebx
+    ja next_point
+    mov al, [byte_aux1]
+    mov bl, 0
+    cmp al, bl
+    jne next_point
+
+    xor eax, eax
+    xor ebx, ebx
+
+    ; Dibujando el pixel
 	mov ah, 0Ch ; writing mode
-	mov al, 0Fh ; white color
+	mov al, 0Fh ; White color
 	mov bh, 00h ; page number
 	int 10h
+next_point:
+	add ecx, 1
+	cmp ecx, 320
+	jne drawing_points
 
 
 	; Wait for key press
@@ -2161,6 +2273,8 @@ segment data
 
 	text5		db	"========== CALCULADORA ARQUI 1 - Elias Vasquez ==========", 0xA, 0xD, "(5) Graficar la funcion original, derivada o integral.", 0xA, 0xD
 	len_text5	equ	$-text5
+	text5_0		db	"1. Graficar funcion original. ", 0xA, 0xD, "2. Graficar derivada de la funcion original. ", 0xA, 0xD, "3. Graficar integra de la funcion original. ", 0xA, 0xD, "> Ingrese el numero de la funcion que desea graficar: "
+	len_text5_0	equ $-text5_0
 
 	text6		db	"========== CALCULADORA ARQUI 1 - Elias Vasquez ==========", 0xA, 0xD, "(6) Encontrar los ceros de la funcion por el metodo de Newton.", 0xA, 0xD
 	len_text6	equ	$-text6
