@@ -870,6 +870,89 @@ int 0x21
 
 %endmacro
 
+
+;; MACRO f'(x)
+; %1 -> x flotante a evaluar en la derivada de la función original
+; El resultado se almacena en la variabe dword_aux3
+%macro evaluateFloatInDerivativeFunction 1
+	xor eax, eax
+	mov [dword_aux3], eax ; limpiando var que guardará la respuesta
+    mov ebx, %1 ; guardando valor a evaluar en EBX
+
+	finit ; inicilizando stack de FPU
+
+	; Operando con deriv_c4
+	mov [dword_aux2], ebx
+    fld dword [dword_aux2]   ;push %1
+    fld dword [dword_aux2]   ;push %1
+    fmul ; st0 = %1^2
+    fld dword [dword_aux2]   ;push %1
+    fmul ; st0 = %1^3
+    fld dword [dword_aux2]   ;push %1
+    fmul ; st0 = %1^4
+	mov al, [deriv_c4]
+	cbw ; extendiendo el signo a AX
+	cwde ; extendiendo el signo a EAX
+	mov [dword_aux2], eax
+    fild dword [dword_aux2]   ;push deriv_c4
+    fmul ; st0 = deriv_c4 * %1^4
+
+	; Operando con deriv_c3
+	mov [dword_aux2], ebx
+    fld dword [dword_aux2]   ;push %1
+    fld dword [dword_aux2]   ;push %1
+    fmul ; st0 = %1^2
+    fld dword [dword_aux2]   ;push %1
+    fmul ; st0 = %1^3
+	xor eax, eax
+	mov al, [deriv_c3]
+	cbw ; extendiendo el signo a AX
+	cwde ; extendiendo el signo a EAX
+	mov [dword_aux2], eax
+    fild dword [dword_aux2]   ;push deriv_c3
+    fmul ; st0 = deriv_c3 * %1^3, st1 = COEF4
+
+	; Operando con deriv_c2
+	mov [dword_aux2], ebx
+    fld dword [dword_aux2]   ;push %1
+    fld dword [dword_aux2]   ;push %1
+    fmul ; st0 = %1^2
+	xor eax, eax
+	mov al, [deriv_c2]
+	cbw ; extendiendo el signo a AX
+	cwde ; extendiendo el signo a EAX
+	mov [dword_aux2], eax
+    fild dword [dword_aux2]   ;push deriv_c2
+    fmul ; st0 = deriv_c2 * %1^2, st1 = COEF3, st2 = COEF4
+
+	; Operando con deriv_c1
+	xor eax, eax
+	mov al, [deriv_c1]
+	cbw ; extendiendo el signo a AX
+	cwde ; extendiendo el signo a EAX
+	mov [dword_aux2], eax
+    fild dword [dword_aux2]   ;push deriv_c1
+	mov [dword_aux2], ebx
+    fld dword [dword_aux2]   ;push %1
+    fmul ; st0 = deriv_c1 * %1, st1 = COEF2, st2 = COEF3, st3 = COEF4
+
+    fadd ; st0 = deriv_c1 * %1 + COEF2
+    fadd ; st0 = st0 + COEF3
+    fadd ; st0 = st0 + COEF4
+
+    ; Sumando el deriv_c0
+	xor eax, eax
+	mov al, [deriv_c0]
+	cbw ; extendiendo el signo a AX
+	cwde ; extendiendo el signo a EAX
+	mov [dword_aux2], eax
+    fild dword [dword_aux2]   ;push deriv_c0 to fpu stack (st0)
+    fadd ; st0 = st0 + st1
+
+    fstp   dword [dword_aux3] ; guardando el resultado en dword_aux3
+
+%endmacro
+
 ; ***********************************************************
 ; Representación IEE de punto flotante
 ; Precisión sencilla (32 BITS):
@@ -1979,13 +2062,17 @@ drawing_points:
 
 get_original_point:
 	; Evaluando X en la función original
-	; el punto en Y se guarda en dword_aux3
     evaluateFloatInOriginalFunction [dword_aux5]
     jmp exit_get_point
 get_derivative_point:
+	; Evaluando X en la derivada de la función original
+	evaluateFloatInDerivativeFunction [dword_aux5]
     jmp exit_get_point
 get_integral_point:
+	; Evaluando X en la función original
+    evaluateFloatInOriginalFunction [dword_aux5]
 exit_get_point:
+	; el punto en Y se guarda en dword_aux3
 
 	finit ; inicializando stack de flotantes
 	fld dword [dword_aux3] ; push Y
@@ -2028,6 +2115,36 @@ exit_get_point:
 	mov al, 0Fh ; White color
 	mov bh, 00h ; page number
 	int 10h
+
+	; Verificando si se debe graficar área bajo la curva
+	mov al, [byte_aux3]
+	cmp al, '3'
+	jne next_point
+
+	; Graficando área bajo la curva
+    cmp dx, 100
+    ja low_area
+    jb up_area
+    jmp next_point
+low_area:
+	; Decrementar dx (Y) hasta 100 (Eje x)
+	mov ah, 0Ch ; writing mode
+	mov al, 0Fh ; White color
+	mov bh, 00h ; page number
+	int 10h
+	dec dx
+	cmp dx, 100
+    ja low_area
+	jmp next_point
+up_area:
+	; Incrementar dx (Y) hasta 100 (Eje x)
+	mov ah, 0Ch ; writing mode
+	mov al, 0Fh ; White color
+	mov bh, 00h ; page number
+	int 10h
+	inc dx
+	cmp dx, 100
+    jb up_area
 next_point:
 	add ecx, 1
 	cmp ecx, 320
@@ -2093,7 +2210,7 @@ positivedword1:
     print ln, 2
 
 
-	; +++++++++ PRUEBAS SUSTITUCIÓN DE FLOTANTES EN F. ORIGINAL ++++++++++
+	; +++++++++ PRUEBAS SUSTITUCIÓN DE FLOTANTES EN DERIVADA ++++++++++
 	mov ebx, __float32__(-5.23)
 	mov [dword_aux1], ebx
     evaluateFloatInOriginalFunction [dword_aux1] ; el parametro es el valor a evaluar, se guarda en dword_aux3
@@ -2109,54 +2226,6 @@ positivedword1:
 positivedword:
 	printDwordNumber [dword_aux3]
 	print ln, 2
-
-
-
-	; +++++++++ PRUEBAS DE SUSTITUCIÓN DE VALOR EN DERIVADA ++++++++++
-
-	mov al, 5
-	mov [byte_aux1], al
-	evaluateDerivativeFunction [byte_aux1]
-
-
-	mov ax, [f_prima_x] 
-	test ax, ax ; para activar la bandera de signo
-	js negative1
-	print ln, 2
-	printWordNumber [f_prima_x]
-	print ln, 2
-	jmp next_one
-negative1:
-	print ln, 2
-	print minus, len_minus
-	mov ax, [f_prima_x]
-	neg ax
-	mov [word_aux1], ax
-	printWordNumber [word_aux1]
-	print ln, 2
-
-	
-next_one:
-	mov al, 5
-	neg al ; -5
-	mov [byte_aux1], al
-	evaluateDerivativeFunction [byte_aux1]
-
-
-	mov ax, [f_prima_x] 
-	test ax, ax ; para activar la bandera de signo
-	js negative2
-	print ln, 2
-	printWordNumber [f_prima_x]
-	print ln, 2
-	jmp exit_option6
-negative2:
-	print ln, 2
-	print minus, len_minus
-	mov ax, [f_prima_x] 
-	neg ax
-	mov [word_aux1], ax
-	printWordNumber [word_aux1]
 
 	
 exit_option6:
