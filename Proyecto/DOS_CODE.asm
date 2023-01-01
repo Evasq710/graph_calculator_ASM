@@ -2672,16 +2672,6 @@ convertir_p_0:
     fadd 						; st0 := entero + decimal
     fstp dword [p_0]			; p_0 = flotante calculado
 
-
-
-
-	print ln, 2
-	printFloatingNumber [p_0]
-	print ln, 2
-
-
-
-
     ; Cálculo de tolerancia para pasarla a flotante
 	xor eax, eax
 	xor ebx, ebx
@@ -2815,7 +2805,7 @@ exit_option6:
 	mov ah, 08h
 	int 21h
 
-	print ln, 2
+	call CLEAR_TERMINAL
 
 	jmp MENU
 
@@ -2838,6 +2828,518 @@ OPTION_7:
 	jmp MENU
 
 ok_option7:
+
+	;; VARIABLES PARA NEWTON Y STEFFENSEN
+	;iteraciones	db 0
+	;coef_toler		db 0
+	;grado_toler	db 0
+	;int_p_0 		db 0
+	;decimal_p_0	dd 0 ; double-word para que quepan varios decimales
+	;factor_div		dd 0 ; para transformar la parte decimal a float (decimal_p_0/factor_div)
+	;tolerancia		dd 0 ; float con la tolerancia (calculada)
+	;p_0 		dd 0 ; float con la aproximación inicial / anterior (calculada)
+	;p_n 		dd 0 ; float con la aproximación actual
+
+	; SOLICITANDO DATOS DE ENTRADA
+
+	; == Número máximo de iteraciones == 
+
+	print text6_0, len_text6_0
+
+	xor si, si
+	mov [buffer_in], si
+
+	read buffer_in, 16
+
+	cld
+	mov si, buffer_in
+	mov cl, 0 ; aux
+	mov dl, 0 ; iteraciones
+	lodsb
+	; Verificando si se saltó
+	cmp al, 10
+	je error_lectura_steff
+	cmp al, 13
+	je error_lectura_steff
+	; Verificando si se ingresó signo
+	cmp al, '-'
+	je error_lectura_steff
+	cmp al, '+'
+	je signo_iteraciones_steff
+	; Verificando que sea número
+	cmp al, '0'
+	jb error_lectura_steff
+	cmp al, '9'
+	jbe lectura_iteraciones_steff
+	; Entrada inválida
+	jmp error_lectura_steff
+signo_iteraciones_steff:
+	lodsb
+	cmp al, '0'
+	jb error_lectura_steff
+	cmp al, '9'
+	ja error_lectura_steff
+lectura_iteraciones_steff:
+	sub al, 48 	; conviertiendo el número leído de 'num' -> num
+	mov cl, al 	; copiando el número leído a CL
+	mov al, dl 	; copiando a AL lo que se lleva en coeficiente (DL), para multiplicarlo * 10
+	mov bl, 10 	; Fuente: factor *10 por cada número leído
+	mul bl		; mul Fuente -> (AL * BL = AH:AL)
+	add al, cl 	; Sumandole a AL el número leído
+	mov dl, al 	; Guardando el resultado en DL
+
+	lodsb
+	cmp al, 10
+	je exit_iteraciones_steff
+	cmp al, 13
+	je exit_iteraciones_steff
+	cmp al, '0'
+	jb error_lectura_steff ; si es menor, error en la entrada
+	cmp al, '9'
+	jbe lectura_iteraciones_steff ; si es menor o igual, entrada correcta
+	jmp error_lectura_steff ; entrada incorrecta
+exit_iteraciones_steff:
+	mov [iteraciones], dl ; Guardando el número máximo de iteraciones
+
+	; == Coeficiente de la tolerancia ==
+
+	print text6_1, len_text6_1
+
+	xor si, si
+	mov [buffer_in], si
+
+	read buffer_in, 16
+
+	cld
+	mov si, buffer_in
+	mov cl, 0 ; aux
+	mov dl, 0 ; coeficiente
+	lodsb
+	; Verificando si se saltó
+	cmp al, 10
+	je error_lectura_steff
+	cmp al, 13
+	je error_lectura_steff
+	; Verificando si se ingresó signo
+	cmp al, '-'
+	je error_lectura_steff
+	cmp al, '+'
+	je signo_coef_toler_steff
+	; Verificando que sea número
+	cmp al, '0'
+	jb error_lectura_steff
+	cmp al, '9'
+	jbe lectura_coef_toler_steff
+	; Entrada inválida
+	jmp error_lectura_steff
+signo_coef_toler_steff:
+	lodsb
+	cmp al, '0'
+	jb error_lectura_steff
+	cmp al, '9'
+	ja error_lectura_steff
+lectura_coef_toler_steff:
+	sub al, 48 	; conviertiendo el número leído de 'num' -> num
+	mov cl, al 	; copiando el número leído a CL
+	mov al, dl 	; copiando a AL lo que se lleva en coeficiente (DL), para multiplicarlo * 10
+	mov bl, 10 	; Fuente: factor *10 por cada número leído
+	mul bl		; mul Fuente -> (AL * BL = AH:AL)
+	add al, cl 	; Sumandole a AL el número leído
+	mov dl, al 	; Guardando el resultado en DL
+
+	lodsb
+	cmp al, 10
+	je exit_coef_toler_steff
+	cmp al, 13
+	je exit_coef_toler_steff
+	cmp al, '0'
+	jb error_lectura_steff ; si es menor, error en la entrada
+	cmp al, '9'
+	jbe lectura_coef_toler_steff ; si es menor o igual, entrada correcta
+	jmp error_lectura_steff ; entrada incorrecta
+exit_coef_toler_steff:
+	mov [coef_toler], dl ; Guardando el coeficiente de tolerancia
+
+	; == Grado de tolerancia ==
+
+	print text6_2, len_text6_2
+
+	xor si, si
+	mov [buffer_in], si
+
+	read buffer_in, 16
+
+	cld
+	mov si, buffer_in
+	mov cl, 0 ; aux
+	mov dl, 0 ; grado de tolerancia
+	lodsb
+	; Verificando si se saltó
+	cmp al, 10
+	je error_lectura_steff
+	cmp al, 13
+	je error_lectura_steff
+	; Verificando si se ingresó signo
+	cmp al, '-'
+	je error_lectura_steff
+	cmp al, '+'
+	je signo_grado_toler_steff
+	; Verificando que sea número
+	cmp al, '0'
+	jb error_lectura_steff
+	cmp al, '9'
+	jbe lectura_grado_toler_steff
+	; Entrada inválida
+	jmp error_lectura_steff
+signo_grado_toler_steff:
+	lodsb
+	cmp al, '0'
+	jb error_lectura_steff
+	cmp al, '9'
+	ja error_lectura_steff
+lectura_grado_toler_steff:
+	sub al, 48 	; conviertiendo el número leído de 'num' -> num
+	mov cl, al 	; copiando el número leído a CL
+	mov al, dl 	; copiando a AL lo que se lleva en coeficiente (DL), para multiplicarlo * 10
+	mov bl, 10 	; Fuente: factor *10 por cada número leído
+	mul bl		; mul Fuente -> (AL * BL = AH:AL)
+	add al, cl 	; Sumandole a AL el número leído
+	mov dl, al 	; Guardando el resultado en DL
+
+	lodsb
+	cmp al, 10
+	je exit_grado_coef_steff
+	cmp al, 13
+	je exit_grado_coef_steff
+	cmp al, '0'
+	jb error_lectura_steff ; si es menor, error en la entrada
+	cmp al, '9'
+	jbe lectura_grado_toler_steff ; si es menor o igual, entrada correcta
+	jmp error_lectura_steff ; entrada incorrecta
+exit_grado_coef_steff:
+	mov [grado_toler], dl ; Guardando el grado de tolerancia
+
+	; == Aproximacion inicial (p_0) ==
+
+	print text6_3, len_text6_3
+
+	xor si, si
+	mov [buffer_in], si
+
+	read buffer_in, 16
+
+	cld
+	mov si, buffer_in
+	mov cl, 0 ; aux
+	xor edx, edx
+	mov [decimal_p_0], edx 	; Seteando parte decimal como 0 (decimal_p_0 es dword)
+	mov edx, 10
+	mov [factor_div], edx 	; Seteando factor para convertir el decimal a float como 10
+	xor edx, edx 			; parte entera: DL
+	mov [byte_aux1], dl 		; 0 | 1 (signo de p_0)
+
+	lodsb
+	; Verificando si se saltó
+	cmp al, 10
+	je error_lectura_steff
+	cmp al, 13
+	je error_lectura_steff
+	; Verificando si se ingresó signo
+	cmp al, '-'
+	je with_minus_p0_steff
+	cmp al, '+'
+	je with_plus_p_0_steff
+	; Verificando que sea número
+	cmp al, '0'
+	jb error_lectura_steff
+	cmp al, '9'
+	jbe lectura_entero_p0_steff
+	; Entrada inválida
+	jmp error_lectura_steff
+with_minus_p0_steff:
+	lodsb
+	cmp al, '0'
+	jb error_lectura_steff
+	cmp al, '9'
+	ja error_lectura_steff
+	mov dl, 1
+	mov [byte_aux1], dl ; indicando que es negativo
+	mov dl, 0
+	jmp lectura_entero_p0_steff
+with_plus_p_0_steff:
+	lodsb
+	cmp al, '0'
+	jb error_lectura_steff
+	cmp al, '9'
+	ja error_lectura_steff
+lectura_entero_p0_steff:
+	; Leyendo parte entera de p_0
+	sub al, 48 	; conviertiendo el número leído de 'num' -> num
+	mov cl, al 	; copiando el número leído a CL
+	mov al, dl 	; copiando a AL lo que se lleva en coeficiente (DL), para multiplicarlo * 10
+	mov bl, 10 	; Fuente: factor *10 por cada número leído
+	mul bl		; mul Fuente -> (AL * BL = AH:AL)
+	add al, cl 	; Sumandole a AL el número leído
+	mov dl, al 	; Guardando el resultado en DL
+	mov [int_p_0], dl ; Guardando la parte entera de p_0
+
+	lodsb
+	cmp al, 10
+	je exit_lectura_p_0_steff
+	cmp al, 13
+	je exit_lectura_p_0_steff
+	cmp al, '.'
+	je parte_decimal_p_0_steff
+	cmp al, '0'
+	jb error_lectura_steff ; si es menor, error en la entrada
+	cmp al, '9'
+	jbe lectura_entero_p0_steff ; si es menor o igual, entrada correcta
+	jmp error_lectura_steff ; entrada incorrecta
+
+parte_decimal_p_0_steff:
+	xor ecx, ecx ; aux
+	xor edx, edx ; parte decimal
+
+	lodsb
+	cmp al, '0'
+	jb error_lectura_steff
+	cmp al, '9'
+	ja error_lectura_steff
+lectura_decimal_p0_steff:
+	; Leyendo parte decimal de p_0
+	sub al, 48 		; conviertiendo el número leído de 'num' -> num
+	mov cl, al 		; copiando el número leído a CL
+	xor eax, eax
+	mov eax, [decimal_p_0] 	; copiando a EAX lo que se lleva en decimal (EDX), para multiplicarlo por 10
+	mov edx, 0
+	mov ebx, 10 	; Fuente: factor *10 por cada número leído
+	mul ebx			; mul Fuente -> (EAX * EBX = EDX:EAX)
+	add eax, ecx 	; Sumandole a EAX el número leído
+	mov [decimal_p_0], eax
+
+	lodsb
+	cmp al, 10
+	je exit_lectura_p_0_steff
+	cmp al, 13
+	je exit_lectura_p_0_steff
+	cmp al, '0'
+	jb error_lectura_steff ; si es menor, error en la entrada
+	cmp al, '9'
+	ja error_lectura_steff ; si es mayor, error en la entrada
+	mov [byte_aux2], al
+	; aumentando el factor de conversión * 10
+	mov eax, [factor_div]
+	mov ebx, 10
+	mul ebx
+	mov [factor_div], eax
+	xor eax, eax
+	xor ebx, ebx
+	xor ecx, ecx
+	xor edx, edx
+	mov al, [byte_aux2]
+	jmp lectura_decimal_p0_steff ; entrada correcta
+exit_lectura_p_0_steff:
+	mov al, [byte_aux1]
+	cmp al, 0
+	je convertir_p_0_steff
+	; p_0 es negativo
+	mov al, [int_p_0]
+	neg al
+	mov [int_p_0], al
+	xor eax, eax
+	mov eax, [decimal_p_0]
+	neg eax
+	mov [decimal_p_0], eax
+	jmp convertir_p_0_steff
+
+error_lectura_steff:
+	print error3, len_error3
+	jmp exit_option7
+
+convertir_p_0_steff:
+	; Cálculo de p_0 para pasarlo a flotante
+	xor eax, eax
+	mov al, [int_p_0]
+	cbw 					; extendiendo el signo a AX
+	cwde 					; extendiendo el signo a EAX
+	
+	finit
+	mov [dword_aux1], eax
+    fild dword [dword_aux1]		; push int_p_0
+    fild dword [decimal_p_0]	; push decimal_p_0
+    fild dword [factor_div]		; push factor_div
+    fdiv 						; st0 := st1 / st0
+    fadd 						; st0 := entero + decimal
+    fstp dword [p_0]			; p_0 = flotante calculado
+
+    ; Cálculo de tolerancia para pasarla a flotante
+	xor eax, eax
+	xor ebx, ebx
+	mov al, [coef_toler]
+	mov bl, [grado_toler]
+	finit
+	mov [dword_aux1], eax
+    fild dword [dword_aux1]		; push coef_toler
+	xor ecx, ecx
+	mov ecx, 1
+	mov [dword_aux1], ecx
+    fild dword [dword_aux1]		; push 1 (10^0)
+	xor ecx, ecx
+	mov ecx, 10
+	mov [dword_aux1], ecx
+pow_ten_steff:
+	cmp bl, 0
+	je exit_pow_ten_steff
+    fild dword [dword_aux1]		; push 10
+    fmul 						; st0 = st1 * 10
+	dec bl
+	jmp pow_ten_steff
+exit_pow_ten_steff:
+    fdiv 						; st0 = coef_toler / (10 ^ grado_toler)
+    fstp dword [tolerancia]		; tolerancia = flotante calculado
+
+    xor eax, eax
+    xor ebx, ebx
+    xor edx, edx
+
+    mov bl, 0
+    mov [iter_actual_new], bl
+STEFFENSEN:
+    mov al, [iteraciones]
+    mov bl, [iter_actual_new]
+    sub al, bl
+	cmp al, 0
+	je ERROR_STEFFENSEN
+
+	add bl, 1
+	mov [iter_actual_new], bl
+
+	print text7_0, len_text7_0 ; header
+	print text6_5, len_text6_5 ; # iteración
+	printNumber [iter_actual_new]
+	print ln, 2
+	print text6_6, len_text6_6 ; p_n
+	printFloatingNumber [p_0]
+	print ln, 2
+
+	evaluateFloatInOriginalFunction [p_0]	; se guarda en dword_aux3
+	mov ebx, [dword_aux3]
+	mov [f_p_0], ebx
+
+	; 𝑥𝑛+1= 𝑥𝑛 − 𝑓(𝑥𝑛) / { [𝑓(𝑥𝑛 + 𝑓(𝑥𝑛)) − 𝑓(𝑥𝑛)] / [𝑓(𝑥𝑛)] }
+	
+	; g(𝑥𝑛) = [𝑓(𝑥𝑛 + 𝑓(𝑥𝑛)) − 𝑓(𝑥𝑛)] / [𝑓(𝑥𝑛)]
+
+	; INIT FPU STACK FOR g(𝑥𝑛)
+	; 1) push 𝑥𝑛
+	; 2) push 𝑓(𝑥𝑛)
+	; 3) fadd
+	; 4) pop st0, calc f(st0) and push
+	; 5) push 𝑓(𝑥𝑛)
+	; 6) fsub
+	; 7) push 𝑓(𝑥𝑛)
+	; 8) fdiv
+	; 9) pop st0 into g(xn)
+
+	finit
+	fld dword [p_0]
+	fld dword [f_p_0]
+	fadd
+	fstp dword [dword_aux1]
+	evaluateFloatInOriginalFunction [dword_aux1]	; se guarda en dword_aux3
+	fld dword [dword_aux3]
+	fld dword [f_p_0]
+	fsub
+	fld dword [f_p_0]
+	fdiv
+	fstp dword [g_p_0]
+
+	; 𝑥𝑛+1= 𝑥𝑛 − 𝑓(𝑥𝑛) / g(𝑥𝑛)
+
+	; INIT FPU STACK FOR 𝑥𝑛+1
+	; 1) push 𝑥𝑛
+	; 2) push 𝑓(𝑥𝑛)
+	; 3) push g(𝑥𝑛)
+	; 4) fdiv
+	; 5) fsub
+	; 6) store st0 into 𝑥𝑛+1
+
+	finit
+	fld dword [p_0]
+	fld dword [f_p_0]
+	fld dword [g_p_0]
+	fdiv
+	fsub
+	fst dword [p_n] ; guardando p_n sin sacarlo de la pila
+
+	; ¿|p - p0| < TOLERANCIA?
+	fld dword [p_0]
+	fsub
+	fabs
+	fstp dword [error_actual_new] ; guardando error
+
+	print text6_7, len_text6_7 ; p_n+1
+	printFloatingNumber [p_n]
+	print ln, 2
+	print text6_8, len_text6_8 ; error
+	printFloatingNumber [error_actual_new]
+	print ln, 2
+	print text6_9, len_text6_9 ; tolerancia
+	printFloatingNumber [tolerancia]
+	print ln, 2
+	print text7_1, len_text7_1 ; end
+	print ln, 2
+
+	fld dword [tolerancia]
+	fld dword [error_actual_new]
+
+    xor eax, eax
+    fcom   st0, st1 	; compare st0 with st1
+    fstsw  ax 			; ax := fpu status register
+
+	; Exito -> |p - p0| < TOLERANCIA
+    and eax, 0100011100000000B ; Solo condition code flags
+    cmp eax, 0000000100000000B ; ¿st0 < source? (ERROR < TOLERANCIA)
+    je EXIT_STEFFENSEN
+
+	print press_key, len_press_key ; pause
+
+	; Wait for key press
+	mov ah, 08h
+	int 21h
+
+	print ln, 2
+
+    ; P_0 = P_n
+    mov edx, [p_n]
+    mov [p_0], edx
+
+	jmp STEFFENSEN
+
+EXIT_STEFFENSEN:
+	print success_new1, len_succ_new1 ; pn
+	printFloatingNumber [p_n]
+	print success_new2, len_succ_new2 ; error
+	printFloatingNumber [error_actual_new]
+	print ln, 2
+	jmp exit_option7
+
+ERROR_STEFFENSEN:
+	print fail_new1, len_fail_new1 ; pn
+	printFloatingNumber [p_n]
+	print fail_new2, len_fail_new2 ; error
+	printFloatingNumber [error_actual_new]
+	print ln, 2
+
+exit_option7:
+
+	print press_key2, len_press_key2 ; pause
+
+	; Wait for key press
+	mov ah, 08h
+	int 21h
+
+	call CLEAR_TERMINAL
 
 	jmp MENU
 
@@ -2973,6 +3475,12 @@ segment data
 
 	text7		db	"========== CALCULADORA ARQUI 1 - Elias Vasquez ==========", 0xA, 0xD, "(7) Encontrar los ceros de la funcion por el metodo de Steffensen.", 0xA, 0xD
 	len_text7	equ	$-text7
+	; Mensajes de iteraciones
+	text7_0		db 0xA, 0xD,"******************* STEFFENSEN *******************", 0xA, 0xD
+	len_text7_0	equ	$-text7_0
+	text7_1	db "**************************************************"
+	len_text7_1	equ	$-text7_1
+	; Los demás mensajes se reciclan de Newton
 
 	text8		db	"Gracias por utilizar esta aplicacion. :)", 0xA, 0xD
 	len_text8	equ	$-text8
@@ -3057,6 +3565,9 @@ segment data
 	error_actual_new dd 0
 	numerador_new	dd 0
 	denominador_new	dd 0
+	;Aux Steffensen
+	f_p_0 		dd 0
+	g_p_0 		dd 0
 
 	;; LIMPIANDO TERMINAL
 	clear 		db 	27,"[H",27,"[2J"    ; <ESC> [H <ESC> [2J
