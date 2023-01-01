@@ -1101,6 +1101,14 @@ int 0x21
     mov [dword_aux5], eax
     jmp %%print_integer
 %%positive_comp:
+    mov eax, [dword_aux6] ; parte flotante
+    test eax, eax
+    jns %%continue_comp
+    ; La parte flotante era negativa, pero la entera se detectó positiva
+    ; Ej: -0.1 -> 0 ¿único caso? ¿[-0.00.., -0.499..] a 0?
+    print minus, len_minus
+    jmp %%print_integer
+%%continue_comp:
     fld dword [dword_aux6]		; push flotante
     fild dword [dword_aux5]		; push redondeado
     xor eax, eax
@@ -1139,6 +1147,7 @@ int 0x21
 	mov [dword_aux4], ebx
     fild dword [dword_aux4]		; push 1000000
     fmul
+    fabs
     fistp dword [dword_aux3]
 
     ; Imprimiendo los ceros antes del primer decimal distinto a cero
