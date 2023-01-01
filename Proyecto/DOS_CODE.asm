@@ -193,9 +193,57 @@ print byte_aux1, 1
 printDwordThreeDigits [dword_aux1]
 %endmacro
 
+;; MACRO IMPRIMIR NUM DE 5 DIGITOS GUARDADO EN 4 BYTES
+%macro printDwordFiveDigits 1
+mov ebx, 10000; EBX: Fuente de 32 bits
+mov eax, %1	; EAX: Resultado
+mov edx, 0	; EDX: Residuo
+
+div ebx 			;Dividiendo EAX / EBX
+mov [dword_aux1], edx
+
+add eax, 48 ; ascii
+mov [byte_aux1], al
+print byte_aux1, 1
+
+printDwordFourDigits [dword_aux1]
+%endmacro
+
+;; MACRO IMPRIMIR NUM DE 6 DIGITOS GUARDADO EN 4 BYTES
+%macro printDwordSixDigits 1
+mov ebx, 100000; EBX: Fuente de 32 bits
+mov eax, %1	; EAX: Resultado
+mov edx, 0	; EDX: Residuo
+
+div ebx 			;Dividiendo EAX / EBX
+mov [dword_aux1], edx
+
+add eax, 48 ; ascii
+mov [byte_aux1], al
+print byte_aux1, 1
+
+printDwordFiveDigits [dword_aux1]
+%endmacro
+
 ;; MACRO IMPRIMIR NÚMERO GUARDADO EN 4 BYTES
 %macro printDwordNumber 1
 mov ecx, %1
+
+mov ebx, 100000	; EBX: Fuente de 32 bits
+mov eax, ecx	; EAX: Resultado
+mov edx, 0		; EDX: Residuo
+
+div ebx 		;Dividiendo EAX / EBX
+cmp eax, 0
+jne %%six		;Si el resultado no es cero, 6 digitos
+
+mov ebx, 10000	; EBX: Fuente de 32 bits
+mov eax, ecx	; EAX: Resultado
+mov edx, 0		; EDX: Residuo
+
+div ebx 		;Dividiendo EAX / EBX
+cmp eax, 0
+jne %%five		;Si el resultado no es cero, 5 digitos
 
 mov ebx, 1000	; EBX: Fuente de 32 bits
 mov eax, ecx	; EAX: Resultado
@@ -223,6 +271,12 @@ jne %%two	;Si el resultado no es cero, 2 digitos
 
 jmp %%one	;Un digito
 
+%%six:
+printDwordSixDigits ecx
+jmp %%exit_macro
+%%five:
+printDwordFiveDigits ecx
+jmp %%exit_macro
 %%four:
 printDwordFourDigits ecx
 jmp %%exit_macro
@@ -1020,6 +1074,99 @@ int 0x21
 	mov  %1, eax
 %endmacro
 
+;; MACRO PARA IMPRIMIR FLOTANTES
+%macro printFloatingNumber 1
+	mov eax, %1 ; recibiendo el flotante a imprimir
+	mov [dword_aux6], eax
+
+	finit
+    fld dword [dword_aux6]		; push flotante
+    frndint
+    fistp dword [dword_aux5]	; pop entero redondeado
+
+    ; Verificando que el redondeo no haya cambiado el valor (que se trunque)
+    mov eax, [dword_aux5]
+    test eax, eax
+    jns %%positive_comp
+    fld dword [dword_aux6]		; push flotante
+    fild dword [dword_aux5]		; push redondeado
+    xor eax, eax
+    fcom   st0, st1 	; compare st0 with st1
+    fstsw  ax 			; ax := fpu status register
+    and eax, 0100011100000000B ; Solo condition code flags
+    cmp eax, 0000000100000000B ; ¿st0 < st1?
+    jne %%print_integer
+    mov eax, [dword_aux5]
+    add eax, 1
+    mov [dword_aux5], eax
+    jmp %%print_integer
+%%positive_comp:
+    fld dword [dword_aux6]		; push flotante
+    fild dword [dword_aux5]		; push redondeado
+    xor eax, eax
+    fcom   st0, st1 	; compare st0 with st1
+    fstsw  ax 			; ax := fpu status register
+    and eax, 0100011100000000B ; Solo condition code flags
+    cmp eax, 0000000000000000B ; ¿st0 > st1?
+    jne %%print_integer
+    mov eax, [dword_aux5]
+    sub eax, 1
+    mov [dword_aux5], eax
+%%print_integer:
+    mov eax, [dword_aux5]
+    test eax, eax
+    jns %%positive_num
+    neg eax
+    mov [dword_aux5], eax
+    ; Pasando a positivo el flotante
+	finit
+    fld dword [dword_aux6]
+    fchs
+    fstp dword [dword_aux6]
+    print minus, len_minus
+%%positive_num:
+    printDwordNumber [dword_aux5]
+
+    mov al, '.'
+    mov [byte_aux1], al
+    print byte_aux1, 1
+
+	finit
+    fld dword [dword_aux6]		; push flotante
+    fild dword [dword_aux5]		; push parte entera
+    fsub 						; obteniendo solo la parte decimal
+    mov ebx, 1000000
+	mov [dword_aux4], ebx
+    fild dword [dword_aux4]		; push 1000000
+    fmul
+    fistp dword [dword_aux3]
+
+    ; Imprimiendo los ceros antes del primer decimal distinto a cero
+
+    mov edx, 0
+    mov ebx, 100000
+%%printing_zeros:
+    mov [dword_aux1], ebx
+    cmp ebx, 1
+    je %%print_decimal_part
+    mov eax, [dword_aux3]
+    div ebx
+    cmp eax, 0
+    jne %%print_decimal_part
+    mov al, '0'
+    mov [byte_aux1], al
+    print byte_aux1, 1
+    mov eax, [dword_aux1]
+    mov edx, 0
+    mov ebx, 10
+    div ebx
+    mov [dword_aux1], eax
+    mov ebx, [dword_aux1]
+    jmp %%printing_zeros
+%%print_decimal_part:
+    printDwordNumber [dword_aux3]
+%endmacro
+
 
 
 ;****************************************************************
@@ -1715,8 +1862,6 @@ OPTION_4:
 
 ok_option4:
 
-	; TODO integ_deg
-
 	; CALCULANDO INTEGRAL
 	; Guardando la división truncada en los coeficientes del resultado
 	;coef_5 / 6 = integ_c6
@@ -2184,52 +2329,492 @@ OPTION_6:
 
 ok_option6:
 
-	; +++++++++ PRUEBAS DE CASTEO DE FLOTANTES ++++++++++
+	;; VARIABLES PARA NEWTON Y STEFFENSEN
+	;iteraciones	db 0
+	;coef_toler		db 0
+	;grado_toler	db 0
+	;int_p_0 		db 0
+	;decimal_p_0	dd 0 ; double-word para que quepan varios decimales
+	;factor_div		dd 0 ; para transformar la parte decimal a float (decimal_p_0/factor_div)
+	;tolerancia		dd 0 ; float con la tolerancia (calculada)
+	;p_0 		dd 0 ; float con la aproximación inicial / anterior (calculada)
+	;p_n 		dd 0 ; float con la aproximación actual
 
-	mov eax, __float32__(-801.252476)
-	mov ebx, __float32__(28.76)
-	mov [dword_aux1], eax
-	mov [dword_aux2], ebx
+	; SOLICITANDO DATOS DE ENTRADA
 
-	finit ;reset fpu stacks to default
-    fld    dword [dword_aux1]   ;push single_value1 to fpu stack
-    fld    dword [dword_aux2]   ;push double_value2 to fpu stack
-    fadd
-    fstp	dword [dword_aux1]	;store the summation result into memmov
+	; == Número máximo de iteraciones == 
 
-    print ln, 2
+	print text6_0, len_text6_0
 
-    castFloatToInt [dword_aux1] ; parámetro el valor a convertir, y se guarda en la misma variable, en byte_aux1 está el signo
-    
-	mov bl, [byte_aux1]
-	cmp bl, 0
-	je positivedword1
-	print minus, len_minus
-positivedword1:
-    printDwordNumber [dword_aux1]
-    print ln, 2
+	xor si, si
+	mov [buffer_in], si
 
+	read buffer_in, 16
 
-	; +++++++++ PRUEBAS SUSTITUCIÓN DE FLOTANTES EN DERIVADA ++++++++++
-	mov ebx, __float32__(-5.23)
-	mov [dword_aux1], ebx
-    evaluateFloatInOriginalFunction [dword_aux1] ; el parametro es el valor a evaluar, se guarda en dword_aux3
+	cld
+	mov si, buffer_in
+	mov cl, 0 ; aux
+	mov dl, 0 ; iteraciones
+	lodsb
+	; Verificando si se saltó
+	cmp al, 10
+	je error_lectura_newton
+	cmp al, 13
+	je error_lectura_newton
+	; Verificando si se ingresó signo
+	cmp al, '-'
+	je error_lectura_newton
+	cmp al, '+'
+	je signo_iteraciones
+	; Verificando que sea número
+	cmp al, '0'
+	jb error_lectura_newton
+	cmp al, '9'
+	jbe lectura_iteraciones
+	; Entrada inválida
+	jmp error_lectura_newton
+signo_iteraciones:
+	lodsb
+	cmp al, '0'
+	jb error_lectura_newton
+	cmp al, '9'
+	ja error_lectura_newton
+lectura_iteraciones:
+	sub al, 48 	; conviertiendo el número leído de 'num' -> num
+	mov cl, al 	; copiando el número leído a CL
+	mov al, dl 	; copiando a AL lo que se lleva en coeficiente (DL), para multiplicarlo * 10
+	mov bl, 10 	; Fuente: factor *10 por cada número leído
+	mul bl		; mul Fuente -> (AL * BL = AH:AL)
+	add al, cl 	; Sumandole a AL el número leído
+	mov dl, al 	; Guardando el resultado en DL
 
-	print ln, 2
+	lodsb
+	cmp al, 10
+	je exit_iteraciones
+	cmp al, 13
+	je exit_iteraciones
+	cmp al, '0'
+	jb error_lectura_newton ; si es menor, error en la entrada
+	cmp al, '9'
+	jbe lectura_iteraciones ; si es menor o igual, entrada correcta
+	jmp error_lectura_newton ; entrada incorrecta
+exit_iteraciones:
+	mov [iteraciones], dl ; Guardando el número máximo de iteraciones
 
-    castFloatToInt [dword_aux3] ; parámetro el valor a convertir, y se guarda en la misma variable, en byte_aux1 está el signo
+	; == Coeficiente de la tolerancia ==
 
-	mov bl, [byte_aux1]
-	cmp bl, 0
-	je positivedword
-	print minus, len_minus
-positivedword:
-	printDwordNumber [dword_aux3]
-	print ln, 2
+	print text6_1, len_text6_1
 
+	xor si, si
+	mov [buffer_in], si
+
+	read buffer_in, 16
+
+	cld
+	mov si, buffer_in
+	mov cl, 0 ; aux
+	mov dl, 0 ; coeficiente
+	lodsb
+	; Verificando si se saltó
+	cmp al, 10
+	je error_lectura_newton
+	cmp al, 13
+	je error_lectura_newton
+	; Verificando si se ingresó signo
+	cmp al, '-'
+	je error_lectura_newton
+	cmp al, '+'
+	je signo_coef_toler
+	; Verificando que sea número
+	cmp al, '0'
+	jb error_lectura_newton
+	cmp al, '9'
+	jbe lectura_coef_toler
+	; Entrada inválida
+	jmp error_lectura_newton
+signo_coef_toler:
+	lodsb
+	cmp al, '0'
+	jb error_lectura_newton
+	cmp al, '9'
+	ja error_lectura_newton
+lectura_coef_toler:
+	sub al, 48 	; conviertiendo el número leído de 'num' -> num
+	mov cl, al 	; copiando el número leído a CL
+	mov al, dl 	; copiando a AL lo que se lleva en coeficiente (DL), para multiplicarlo * 10
+	mov bl, 10 	; Fuente: factor *10 por cada número leído
+	mul bl		; mul Fuente -> (AL * BL = AH:AL)
+	add al, cl 	; Sumandole a AL el número leído
+	mov dl, al 	; Guardando el resultado en DL
+
+	lodsb
+	cmp al, 10
+	je exit_coef_toler
+	cmp al, 13
+	je exit_coef_toler
+	cmp al, '0'
+	jb error_lectura_newton ; si es menor, error en la entrada
+	cmp al, '9'
+	jbe lectura_coef_toler ; si es menor o igual, entrada correcta
+	jmp error_lectura_newton ; entrada incorrecta
+exit_coef_toler:
+	mov [coef_toler], dl ; Guardando el coeficiente de tolerancia
+
+	; == Grado de tolerancia ==
+
+	print text6_2, len_text6_2
+
+	xor si, si
+	mov [buffer_in], si
+
+	read buffer_in, 16
+
+	cld
+	mov si, buffer_in
+	mov cl, 0 ; aux
+	mov dl, 0 ; grado de tolerancia
+	lodsb
+	; Verificando si se saltó
+	cmp al, 10
+	je error_lectura_newton
+	cmp al, 13
+	je error_lectura_newton
+	; Verificando si se ingresó signo
+	cmp al, '-'
+	je error_lectura_newton
+	cmp al, '+'
+	je signo_grado_toler
+	; Verificando que sea número
+	cmp al, '0'
+	jb error_lectura_newton
+	cmp al, '9'
+	jbe lectura_grado_toler
+	; Entrada inválida
+	jmp error_lectura_newton
+signo_grado_toler:
+	lodsb
+	cmp al, '0'
+	jb error_lectura_newton
+	cmp al, '9'
+	ja error_lectura_newton
+lectura_grado_toler:
+	sub al, 48 	; conviertiendo el número leído de 'num' -> num
+	mov cl, al 	; copiando el número leído a CL
+	mov al, dl 	; copiando a AL lo que se lleva en coeficiente (DL), para multiplicarlo * 10
+	mov bl, 10 	; Fuente: factor *10 por cada número leído
+	mul bl		; mul Fuente -> (AL * BL = AH:AL)
+	add al, cl 	; Sumandole a AL el número leído
+	mov dl, al 	; Guardando el resultado en DL
+
+	lodsb
+	cmp al, 10
+	je exit_grado_coef
+	cmp al, 13
+	je exit_grado_coef
+	cmp al, '0'
+	jb error_lectura_newton ; si es menor, error en la entrada
+	cmp al, '9'
+	jbe lectura_grado_toler ; si es menor o igual, entrada correcta
+	jmp error_lectura_newton ; entrada incorrecta
+exit_grado_coef:
+	mov [grado_toler], dl ; Guardando el grado de tolerancia
+
+	; == Aproximacion inicial (p_0) ==
+
+	print text6_3, len_text6_3
+
+	xor si, si
+	mov [buffer_in], si
+
+	read buffer_in, 16
+
+	cld
+	mov si, buffer_in
+	mov cl, 0 ; aux
+	xor edx, edx
+	mov [decimal_p_0], edx 	; Seteando parte decimal como 0 (decimal_p_0 es dword)
+	mov edx, 10
+	mov [factor_div], edx 	; Seteando factor para convertir el decimal a float como 10
+	xor edx, edx 			; parte entera: DL
+	mov [byte_aux1], dl 		; 0 | 1 (signo de p_0)
+
+	lodsb
+	; Verificando si se saltó
+	cmp al, 10
+	je error_lectura_newton
+	cmp al, 13
+	je error_lectura_newton
+	; Verificando si se ingresó signo
+	cmp al, '-'
+	je with_minus_p0
+	cmp al, '+'
+	je with_plus_p_0
+	; Verificando que sea número
+	cmp al, '0'
+	jb error_lectura_newton
+	cmp al, '9'
+	jbe lectura_entero_p0
+	; Entrada inválida
+	jmp error_lectura_newton
+with_minus_p0:
+	lodsb
+	cmp al, '0'
+	jb error_lectura_newton
+	cmp al, '9'
+	ja error_lectura_newton
+	mov dl, 1
+	mov [byte_aux1], dl ; indicando que es negativo
+	mov dl, 0
+	jmp lectura_entero_p0
+with_plus_p_0:
+	lodsb
+	cmp al, '0'
+	jb error_lectura_newton
+	cmp al, '9'
+	ja error_lectura_newton
+lectura_entero_p0:
+	; Leyendo parte entera de p_0
+	sub al, 48 	; conviertiendo el número leído de 'num' -> num
+	mov cl, al 	; copiando el número leído a CL
+	mov al, dl 	; copiando a AL lo que se lleva en coeficiente (DL), para multiplicarlo * 10
+	mov bl, 10 	; Fuente: factor *10 por cada número leído
+	mul bl		; mul Fuente -> (AL * BL = AH:AL)
+	add al, cl 	; Sumandole a AL el número leído
+	mov dl, al 	; Guardando el resultado en DL
+	mov [int_p_0], dl ; Guardando la parte entera de p_0
+
+	lodsb
+	cmp al, 10
+	je exit_lectura_p_0
+	cmp al, 13
+	je exit_lectura_p_0
+	cmp al, '.'
+	je parte_decimal_p_0
+	cmp al, '0'
+	jb error_lectura_newton ; si es menor, error en la entrada
+	cmp al, '9'
+	jbe lectura_entero_p0 ; si es menor o igual, entrada correcta
+	jmp error_lectura_newton ; entrada incorrecta
+
+parte_decimal_p_0:
+	xor ecx, ecx ; aux
+	xor edx, edx ; parte decimal
+
+	lodsb
+	cmp al, '0'
+	jb error_lectura_newton
+	cmp al, '9'
+	ja error_lectura_newton
+lectura_decimal_p0:
+	; Leyendo parte decimal de p_0
+	sub al, 48 		; conviertiendo el número leído de 'num' -> num
+	mov cl, al 		; copiando el número leído a CL
+	xor eax, eax
+	mov eax, [decimal_p_0] 	; copiando a EAX lo que se lleva en decimal (EDX), para multiplicarlo por 10
+	mov edx, 0
+	mov ebx, 10 	; Fuente: factor *10 por cada número leído
+	mul ebx			; mul Fuente -> (EAX * EBX = EDX:EAX)
+	add eax, ecx 	; Sumandole a EAX el número leído
+	mov [decimal_p_0], eax
+
+	lodsb
+	cmp al, 10
+	je exit_lectura_p_0
+	cmp al, 13
+	je exit_lectura_p_0
+	cmp al, '0'
+	jb error_lectura_newton ; si es menor, error en la entrada
+	cmp al, '9'
+	ja error_lectura_newton ; si es mayor, error en la entrada
+	mov [byte_aux2], al
+	; aumentando el factor de conversión * 10
+	mov eax, [factor_div]
+	mov ebx, 10
+	mul ebx
+	mov [factor_div], eax
+	xor eax, eax
+	xor ebx, ebx
+	xor ecx, ecx
+	xor edx, edx
+	mov al, [byte_aux2]
+	jmp lectura_decimal_p0 ; entrada correcta
+exit_lectura_p_0:
+	mov al, [byte_aux1]
+	cmp al, 0
+	je convertir_p_0
+	; p_0 es negativo
+	mov al, [int_p_0]
+	neg al
+	mov [int_p_0], al
+	xor eax, eax
+	mov eax, [decimal_p_0]
+	neg eax
+	mov [decimal_p_0], eax
+	jmp convertir_p_0
+
+error_lectura_newton:
+	print error3, len_error3
+	jmp exit_option6
+
+convertir_p_0:
+	; Cálculo de p_0 para pasarlo a flotante
+	xor eax, eax
+	mov al, [int_p_0]
+	cbw 					; extendiendo el signo a AX
+	cwde 					; extendiendo el signo a EAX
 	
-exit_option6:
+	finit
+	mov [dword_aux1], eax
+    fild dword [dword_aux1]		; push int_p_0
+    fild dword [decimal_p_0]	; push decimal_p_0
+    fild dword [factor_div]		; push factor_div
+    fdiv 						; st0 := st1 / st0
+    fadd 						; st0 := entero + decimal
+    fstp dword [p_0]			; p_0 = flotante calculado
+
+
+
+
 	print ln, 2
+	printFloatingNumber [p_0]
+	print ln, 2
+
+
+
+
+    ; Cálculo de tolerancia para pasarla a flotante
+	xor eax, eax
+	xor ebx, ebx
+	mov al, [coef_toler]
+	mov bl, [grado_toler]
+	finit
+	mov [dword_aux1], eax
+    fild dword [dword_aux1]		; push coef_toler
+	xor ecx, ecx
+	mov ecx, 1
+	mov [dword_aux1], ecx
+    fild dword [dword_aux1]		; push 1 (10^0)
+	xor ecx, ecx
+	mov ecx, 10
+	mov [dword_aux1], ecx
+pow_ten:
+	cmp bl, 0
+	je exit_pow_ten
+    fild dword [dword_aux1]		; push 10
+    fmul 						; st0 = st1 * 10
+	dec bl
+	jmp pow_ten
+exit_pow_ten:
+    fdiv 						; st0 = coef_toler / (10 ^ grado_toler)
+    fstp dword [tolerancia]		; tolerancia = flotante calculado
+
+    xor eax, eax
+    xor ebx, ebx
+    xor edx, edx
+
+    mov bl, 0
+    mov [iter_actual_new], bl
+NEWTON:
+    mov al, [iteraciones]
+    mov bl, [iter_actual_new]
+    sub al, bl
+	cmp al, 0
+	je ERROR_NEWTON
+
+	add bl, 1
+	mov [iter_actual_new], bl
+
+	print text6_4, len_text6_4 ; header
+	print text6_5, len_text6_5 ; # iteración
+	printNumber [iter_actual_new]
+	print ln, 2
+	print text6_6, len_text6_6 ; p_n
+	printFloatingNumber [p_0]
+	print ln, 2
+
+	evaluateFloatInOriginalFunction [p_0]	; se guarda en dword_aux3
+	mov ebx, [dword_aux3]
+	mov [numerador_new], ebx
+	evaluateFloatInDerivativeFunction [p_0]	; se guarda en dword_aux3
+	mov ebx, [dword_aux3]
+	mov [denominador_new], ebx
+
+	;𝑥𝑛+1=𝑥𝑛−𝑓(𝑥𝑛)/𝑓′(𝑥𝑛)
+	finit
+	fld dword [p_0]
+	fld dword [numerador_new]
+	fld dword [denominador_new]
+	fdiv
+	fsub
+	fst dword [p_n] ; guardando p_n sin sacarlo de la pila
+
+	; ¿|p - p0| < TOLERANCIA?
+	fld dword [p_0]
+	fsub
+	fabs
+	fstp dword [error_actual_new] ; guardando error sin sacarlo de la pila
+
+	print text6_7, len_text6_7 ; p_n+1
+	printFloatingNumber [p_n]
+	print ln, 2
+	print text6_8, len_text6_8 ; error
+	printFloatingNumber [error_actual_new]
+	print ln, 2
+	print text6_9, len_text6_9 ; tolerancia
+	printFloatingNumber [tolerancia]
+	print ln, 2
+	print text6_10, len_text6_10 ; end
+	print ln, 2
+
+	fld dword [tolerancia]
+	fld dword [error_actual_new]
+
+    xor eax, eax
+    fcom   st0, st1 	; compare st0 with st1
+    fstsw  ax 			; ax := fpu status register
+
+	; Exito -> |p - p0| < TOLERANCIA
+    and eax, 0100011100000000B ; Solo condition code flags
+    cmp eax, 0000000100000000B ; ¿st0 < source? (ERROR < TOLERANCIA)
+    je EXIT_NEWTON
+
+	print press_key, len_press_key ; pause
+
+	; Wait for key press
+	mov ah, 08h
+	int 21h
+
+	print ln, 2
+
+    ; P_0 = P_n
+    mov edx, [p_n]
+    mov [p_0], edx
+
+	jmp NEWTON
+
+EXIT_NEWTON:
+	print success_new1, len_succ_new1 ; pn
+	printFloatingNumber [p_n]
+	print success_new2, len_succ_new2 ; error
+	printFloatingNumber [error_actual_new]
+	print ln, 2
+	jmp exit_option6
+
+ERROR_NEWTON:
+	print fail_new1, len_fail_new1 ; pn
+	printFloatingNumber [p_n]
+	print fail_new2, len_fail_new2 ; error
+	printFloatingNumber [error_actual_new]
+	print ln, 2
+
+exit_option6:
+
+	print press_key2, len_press_key2 ; pause
+
+	; Wait for key press
+	mov ah, 08h
+	int 21h
+
 	print ln, 2
 
 	jmp MENU
@@ -2347,6 +2932,44 @@ segment data
 
 	text6		db	"========== CALCULADORA ARQUI 1 - Elias Vasquez ==========", 0xA, 0xD, "(6) Encontrar los ceros de la funcion por el metodo de Newton.", 0xA, 0xD
 	len_text6	equ	$-text6
+	text6_0		db 0xA, 0xD, "> Ingrese el numero maximo de iteraciones: "
+	len_text6_0	equ	$-text6_0
+	text6_1		db "> Ingrese el coeficiente de la tolerancia: "
+	len_text6_1	equ	$-text6_1
+	text6_2		db "> Ingrese el grado de tolerancia: "
+	len_text6_2	equ	$-text6_2
+	text6_3		db "> Ingrese la aproximacion inicial (P_0): "
+	len_text6_3	equ	$-text6_3
+	; Mensajes de iteraciones
+	text6_4		db 0xA, 0xD,"******************* NEWTON *******************", 0xA, 0xD
+	len_text6_4	equ	$-text6_4
+	text6_5		db "> Iteracion: "
+	len_text6_5	equ	$-text6_5
+	text6_6		db "> Valor inicial (Pn): "
+	len_text6_6	equ	$-text6_6
+	text6_7		db "> Nuevo valor (Pn+1): "
+	len_text6_7	equ	$-text6_7
+	text6_8		db "> Error: "
+	len_text6_8	equ	$-text6_8
+	text6_9		db "> Tolerancia: "
+	len_text6_9	equ	$-text6_9
+	text6_10	db "***********************************************"
+	len_text6_10 equ	$-text6_10
+	press_key	db "> Presione cualquier tecla para la siguiente iteracion... "
+	len_press_key	equ	$-press_key
+	press_key2	db "> Presione cualquier tecla para volver al menu.", 0xA, 0xD
+	len_press_key2	equ	$-press_key2
+
+	success_new1 db "> Solucion encontrada en Pn = "
+	len_succ_new1 equ $-success_new1
+	success_new2 db " con error de "
+	len_succ_new2 equ $-success_new2
+
+	fail_new1	db "> Se llego al limite de iteraciones sin encontrar solucion.", 0xA, 0xD, " Ultimo valor Pn calculado: "
+	len_fail_new1 equ $-fail_new1
+	fail_new2 db " con error de "
+	len_fail_new2 equ $-fail_new2
+
 
 	text7		db	"========== CALCULADORA ARQUI 1 - Elias Vasquez ==========", 0xA, 0xD, "(7) Encontrar los ceros de la funcion por el metodo de Steffensen.", 0xA, 0xD
 	len_text7	equ	$-text7
@@ -2361,6 +2984,10 @@ segment data
 	; error de entrada inválida en opción 1
 	error2		db	"> Error, se detecto una entrada invalida. Valor a asignar al coeficiente: 0", 0xA, 0xD
 	len_error2	equ	$-error2
+
+	; error de entrada inválida en iteraciones
+	error3		db	"> Error, ingrese una entrada valida (numero entero positivo).", 0xA, 0xD
+	len_error3	equ	$-error3
 
 	; warning, no hay función declarada
 	warning1	db "> No se encontro ninguna funcion almacenada. Seleccione opcion 1) para almacenar una funcion.", 0xA, 0xD
@@ -2414,6 +3041,22 @@ segment data
 	dword_aux4	dd 0.0
 	dword_aux5	dd 0.0
 	dword_aux6	dd 0.0
+
+	;; VARIABLES PARA NEWTON Y STEFFENSEN
+	iteraciones	db 0
+	coef_toler	db 0
+	grado_toler	db 0
+	int_p_0 	db 0
+	decimal_p_0	dd 0 ; double-word para que quepan varios decimales
+	factor_div	dd 0 ; para transformar la parte decimal a float (decimal_p_0/factor_div)
+	tolerancia	dd 0 ; float con la tolerancia (calculada)
+	p_0 		dd 0 ; float con la aproximación inicial / anterior (calculada)
+	p_n 		dd 0 ; float con la aproximación actual
+	; Aux Newton
+	iter_actual_new	db 0
+	error_actual_new dd 0
+	numerador_new	dd 0
+	denominador_new	dd 0
 
 	;; LIMPIANDO TERMINAL
 	clear 		db 	27,"[H",27,"[2J"    ; <ESC> [H <ESC> [2J
