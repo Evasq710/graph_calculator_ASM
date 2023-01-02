@@ -1,5 +1,10 @@
 # Assembler_201900131
 
+## Detalles de la aplicación
+
+La aplicación tiene como objetivo ser una calculadora que se maneje en consola, pudiendo almacenar ecuaciones de grado n (donde n es un número entero no mayor a 5), y calcular su derivada e integral, graficar dichas funciones almacenadas en ella, y encontrar los ceros de la función por medio del método de Newton o del método de Steffensen, todo esto utilizando como herramienta un ensamblador de x86, el coprocesador matemático e interrupciones de DOS.
+
+
 ## LINUX (Fase 1)
 
 ### Archivos
@@ -27,6 +32,7 @@ Comando Linux para generar ejecutable:
 ld -m elf_i386 -o NAME_EXEC_FILE OBJECT_FILE.o
 ```
 
+
 ## DOS (Fase 2)
 
 ### Archivos
@@ -41,6 +47,7 @@ ld -m elf_i386 -o NAME_EXEC_FILE OBJECT_FILE.o
 - Ensamblador NASM
 - Sintaxis Intel
 - Programa de 16 bits
+- Utilización de DosBOX para ejecución del programa
 
 Comando DOS para generar código objeto (archivo .obj):
 
