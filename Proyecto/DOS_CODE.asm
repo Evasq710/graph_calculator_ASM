@@ -1362,6 +1362,69 @@ increase_y:
 	cmp dx, 200
 	jne drawing_y
 
+	; Notación de ejes
+	; Eje Y
+	mov ah, 02h ; set cursor position
+	mov bh, 00h ; set page number
+	mov dl, 21; set column
+	mov dh, 0 ; set row
+	int 10h
+
+	mov ah, 09h ; write string to standard output
+	lea dx, eje_y ; give dx a pointer to the string
+	int 21h
+
+	mov ah, 02h ; set cursor position
+	mov bh, 00h ; set page number
+	mov dl, 18; set column
+	mov dh, 0 ; set row
+	int 10h
+
+	mov ah, 09h ; write string to standard output
+	lea dx, plus_y ; give dx a pointer to the string
+	int 21h
+
+	mov ah, 02h ; set cursor position
+	mov bh, 00h ; set page number
+	mov dl, 18; set column
+	mov dh, 24 ; set row
+	int 10h
+
+	mov ah, 09h ; write string to standard output
+	lea dx, minus_y ; give dx a pointer to the string
+	int 21h
+
+	; Eje X
+	mov ah, 02h ; set cursor position
+	mov bh, 00h ; set page number
+	mov dl, 39; set column
+	mov dh, 11 ; set row
+	int 10h
+
+	mov ah, 09h ; write string to standard output
+	lea dx, eje_x ; give dx a pointer to the string
+	int 21h
+
+	mov ah, 02h ; set cursor position
+	mov bh, 00h ; set page number
+	mov dl, 39; set column
+	mov dh, 13 ; set row
+	int 10h
+
+	mov ah, 09h ; write string to standard output
+	lea dx, plus_x ; give dx a pointer to the string
+	int 21h
+
+	mov ah, 02h ; set cursor position
+	mov bh, 00h ; set page number
+	mov dl, 0; set column
+	mov dh, 13 ; set row
+	int 10h
+
+	mov ah, 09h ; write string to standard output
+	lea dx, minus_x ; give dx a pointer to the string
+	int 21h
+
 	ret
 
 
@@ -2185,25 +2248,25 @@ graph_type:
 	mov bl, 00h ; black color
 	int 10h
 
-	; EJE X: -16 <=> 16
-	; EJE Y: -10 <=> 10
+	; EJE X: -8 <=> 8
+	; EJE Y: -5 <=> 5
 	call GRAPH_CARTESIAN_MAP
 
 	mov ecx, 1		; (Pixel en X)
 
 drawing_points:
-	mov eax, 10		; Para manejar la escala
-	mov ebx, 16		; Para manejar la escala
+	mov eax, 20		; Para manejar la escala (16/320)
+	mov ebx, 8		; Para manejar la escala
 
 	finit ; inicializando stack de flotantes
 	mov [dword_aux4], ecx
 	fild dword [dword_aux4] ; push pixel actual
 	mov [dword_aux4], eax
 	fild dword [dword_aux4] ; push escala 1:10
-	fdiv ; st0 = Pixel / 10
+	fdiv ; st0 = Pixel / 20
 	mov [dword_aux4], ebx
 	fild dword [dword_aux4] ; push ajuste de +/- X
-	fsub ; st0 = X - 16
+	fsub ; st0 = X - 8
 	fstp dword [dword_aux5] ; Guardando la X en dword_aux5
 
 	mov al, [byte_aux3]
@@ -2232,18 +2295,20 @@ exit_get_point:
 	fld dword [dword_aux3] ; push Y
 
 	xor eax, eax
-	mov eax, -1		; Para ajustar Y
+	mov eax, -1		; Para ajustar Y (Eje -Y en el tope de la ventana)
 	mov [dword_aux4], eax
 	fild dword [dword_aux4] ; push ajuste +/- Y
 	fmul
 
-	mov eax, 10		; Para manejar la escala
+	mov eax, 5		; Para manejar la escala
 	mov [dword_aux4], eax
 	fild dword [dword_aux4] ; push ajuste +/- Y
-	fadd ; st0 = Y + 10
+	fadd ; st0 = Y + 5
 
-	fild dword [dword_aux4] ; push escala 1:10
-	fmul ; st0 = Y * 10
+	mov eax, 20		; Para manejar la escala
+	mov [dword_aux4], eax
+	fild dword [dword_aux4] ; push escala 20:1
+	fmul ; st0 = Y * 20
 	fstp dword [dword_aux6] ; (Pixel en Y)
 
 	mov [dword_aux5], ecx ; guardando pixel en X
@@ -2266,7 +2331,7 @@ exit_get_point:
 
     ; Dibujando el pixel
 	mov ah, 0Ch ; writing mode
-	mov al, 0Fh ; White color
+	mov al, 0Ch ; color
 	mov bh, 00h ; page number
 	int 10h
 
@@ -2283,7 +2348,7 @@ exit_get_point:
 low_area:
 	; Decrementar dx (Y) hasta 100 (Eje x)
 	mov ah, 0Ch ; writing mode
-	mov al, 0Fh ; White color
+	mov al, 0Eh ; Light yellow color
 	mov bh, 00h ; page number
 	int 10h
 	dec dx
@@ -2293,7 +2358,7 @@ low_area:
 up_area:
 	; Incrementar dx (Y) hasta 100 (Eje x)
 	mov ah, 0Ch ; writing mode
-	mov al, 0Fh ; White color
+	mov al, 0Eh ; Light yellow color
 	mov bh, 00h ; page number
 	int 10h
 	inc dx
@@ -3514,6 +3579,14 @@ segment data
 	ln  		db 	0xA, 0xD
 	; espacio
 	space 		db 	" "
+
+	; gráficas
+	eje_x	db 	'x', '$'
+	eje_y	db 	'y', '$'
+	plus_y	db 	'5', '$'
+	plus_x	db 	'8', '$'
+	minus_y	db 	'-5', '$'
+	minus_x	db 	'-8', '$'
 
 	;; DEFINIENDO COEFICIENTES DE FUNCIÓN ORIGINAL (-128 (-2⁷) hasta 128 (2⁷))
 	degree		db	10 ; valor para indicar que no hay función
